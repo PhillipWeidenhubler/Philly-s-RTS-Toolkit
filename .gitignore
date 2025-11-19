@@ -1,0 +1,35 @@
+# Visual Studio / dotnet
+.vs/
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build outputs
+**/bin/
+**/obj/
+*.exe
+*.dll
+*.pdb
+*.cache
+
+# WebView2 / browser profile artifacts
+**/PhillyRTSToolkit.exe.WebView2/
+**/EBWebView/
+
+# Rider / JetBrains
+.idea/
+
+# Node
+node_modules/
+
+# OS files
+Thumbs.db
+Desktop.ini
+*.log
+
+# Sensitive files (if any)
+env.local
+*.env
