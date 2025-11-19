@@ -1,179 +1,215 @@
-(() => {
-  const dataInput = document.getElementById("dataInput");
-  const renderButton = document.getElementById("renderCards");
-  const loadSampleButton = document.getElementById("loadSample");
-  const loadSavedButton = document.getElementById("loadSaved");
-  const saveDataButton = document.getElementById("saveData");
-  const refreshAppButton = document.getElementById("refreshApp");
-  const loadDataFile = document.getElementById("loadDataFile");
-  const settingsBtn = document.getElementById("settingsBtn");
-  const settingsPanel = document.getElementById("settingsPanel");
-  const themeSelect = document.getElementById("themeSelect");
-  const applyThemeBtn = document.getElementById("applyThemeBtn");
-  const exportPngButton = document.getElementById("exportPng");
-  const printButton = document.getElementById("printCards");
-  const cardsContainer = document.getElementById("cards");
-  const flash = document.getElementById("flash");
-  const unitSelect = document.getElementById("unitSelect");
-  const unitName = document.getElementById("unitName");
-  const unitPrice = document.getElementById("unitPrice");
-  const unitCategory = document.getElementById("unitCategory");
-  const unitTier = document.getElementById("unitTier");
-  const unitDescription = document.getElementById("unitDescription");
-  const unitInternalCategory = document.getElementById("unitInternalCategory");
-  const unitSubCategory = document.getElementById("unitSubCategory");
-  const unitImage = document.getElementById("unitImage");
-  const statArmor = document.getElementById("statArmor");
-  const statHealth = document.getElementById("statHealth");
-  const statSquad = document.getElementById("statSquad");
-  const statRange = document.getElementById("statRange");
-  const statStealth = document.getElementById("statStealth");
-  const statSpeed = document.getElementById("statSpeed");
-  const statWeight = document.getElementById("statWeight");
-  const grenSmoke = document.getElementById("grenSmoke");
-  const grenFlash = document.getElementById("grenFlash");
-  const grenThermite = document.getElementById("grenThermite");
-  const grenFrag = document.getElementById("grenFrag");
-  const grenTotal = document.getElementById("grenTotal");
-  const capStatic = document.getElementById("capStatic");
-  const capHalo = document.getElementById("capHalo");
-  const capLaser = document.getElementById("capLaser");
-  const sprintDistance = document.getElementById("sprintDistance");
-  const sprintSpeed = document.getElementById("sprintSpeed");
-  const sprintCooldown = document.getElementById("sprintCooldown");
-  const gunList = document.getElementById("gunList");
-  const addGunButton = document.getElementById("addGun");
-  const equipmentList = document.getElementById("equipmentList");
-  const addEquipmentButton = document.getElementById("addEquipment");
-  const weaponLibrary = document.getElementById("weaponLibrary");
-  const categorySearch = document.getElementById("categorySearch");
+const RTS = window.RTS || {};
+const dom = RTS.dom || {};
+const state = RTS.state || {
+  weaponTemplates: {},
+  ammoLibrary: {},
+  weaponTags: { categories: {}, calibers: {} },
+};
+const { themes, fallbackImage, subcategoryMap, sampleData } = RTS.constants || {};
+const {
+  valueOrNA,
+  yesNo,
+  parseBoolish,
+  createPill,
+  sectionTitle,
+  getTagColor,
+  formatWithUnit,
+  formatPercent,
+  formatSpeed,
+  formatPoints,
+  toNumber,
+  armorScore,
+  clampScore,
+  deepClone,
+  scoreUnitDetailed,
+  scoreFormationDetailed,
+  scoreNationDetailed,
+} = RTS.helpers || {};
+
+const {
+  dataInput,
+  renderButton,
+  loadSampleButton,
+  loadSavedButton,
+  saveDataButton,
+  refreshAppButton,
+  loadDataFile,
+  settingsBtn,
+  settingsPanel,
+  themeSelect,
+  applyThemeBtn,
+  exportPngButton,
+  printButton,
+  cardsContainer,
+  flash,
+  unitSelect,
+  unitName,
+  unitPrice,
+  unitCategory,
+  unitTier,
+  unitDescription,
+  unitInternalCategory,
+  unitSubCategory,
+  unitImage,
+  statArmor,
+  statHealth,
+  statSquad,
+  statRange,
+  statStealth,
+  statSpeed,
+  statWeight,
+  grenSmoke,
+  grenFlash,
+  grenThermite,
+  grenFrag,
+  grenTotal,
+  capStatic,
+  capHalo,
+  capLaser,
+  sprintDistance,
+  sprintSpeed,
+  sprintCooldown,
+  gunList,
+  addGunButton,
+  equipmentList,
+  addEquipmentButton,
+  weaponLibrary,
+  categorySearch,
+  saveUnitButton,
+  addUnitButton,
+  deleteUnitButton,
+  downloadLogsBtn,
+  viewModeBtn,
+  editModeBtn,
+  formationOverviewBtn,
+  formationEditorBtn,
+  nationOverviewBtn,
+  nationEditorBtn,
+  viewSection,
+  editSection,
+  viewControlsSection,
+  formationEditorSection,
+  formationOverviewSection,
+  nationEditorSection,
+  nationOverviewSection,
+  weaponEditorSection,
+  ammoEditorSection,
+  nationOverviewSelect,
+  searchInput,
+  filterCategoryInput,
+  filterInternalSelect,
+  filterTierSelect,
+  sortUnitsSelect,
+  unitBrowser,
+  formationSelect,
+  formationName,
+  formationDescription,
+  formationImage,
+  weaponEditorBtn,
+  ammoEditorBtn,
+  topUnitsList,
+  topFormationsList,
+  topNationsList,
+  topUnitsBlock,
+  topFormationsBlock,
+  topNationsBlock,
+  statsBtn,
+  statsSection,
+  statsTypeButtons,
+  addFormationButton,
+  saveFormationButton,
+  deleteFormationButton,
+  nationSelect,
+  nationName,
+  nationDescription,
+  nationImage,
+  nationFormationsList,
+  addNationButton,
+  saveNationButton,
+  deleteNationButton,
+  exportNationButton,
+  importNationButton,
+  importNationFile,
+  categoryList,
+  addCategoryButton,
+  weaponSelect,
+  weaponSearch,
+  exportWeaponLibBtn,
+  importWeaponLibBtn,
+  importWeaponFile,
+  weaponName,
+  weaponCaliber,
+  weaponRange,
+  weaponCategory,
+  weaponMuzzle,
+  weaponDispersion,
+  weaponBarrel,
+  weaponReload,
+  weaponFireModes,
+  saveWeaponButton,
+  addWeaponButton,
+  duplicateWeaponButton,
+  deleteWeaponButton,
+  weaponPreview,
+  ammoSelect,
+  ammoSearch,
+  exportAmmoLibBtn,
+  importAmmoLibBtn,
+  importAmmoFile,
+  ammoNameInput,
+  ammoCaliberInput,
+  ammoCaliberDescInput,
+  ammoPenetrationInput,
+  ammoHEInput,
+  ammoDispersionInput,
+  ammoRangeInput,
+  ammoGrainInput,
+  ammoNotesInput,
+  saveAmmoButton,
+  addAmmoButton,
+  duplicateAmmoButton,
+  deleteAmmoButton,
+  ammoPreview,
+  ammoCaliberList,
+  unitImageDrop,
+  formationImageDrop,
+  nationImageDrop,
+  openUnitImagePicker,
+  openFormationImagePicker,
+  openNationImagePicker,
+  imagePicker,
+  imageGrid,
+  imageSearch,
+  closeImagePickerBtn,
+  tagCategoryName,
+  tagCategoryColor,
+  tagCaliberName,
+  tagCaliberColor,
+  addCategoryTagBtn,
+  addCaliberTagBtn,
+  categoryTagList,
+  caliberTagList,
+} = dom;
+const { weaponTemplates, ammoLibrary, weaponTags } = state;
+
+const weaponModule = RTS.weaponEditor;
+const rebuildWeaponLibrary = (data) => weaponModule?.rebuildFromData?.(data);
+const safeRenderTagLists = () => weaponModule?.safeRenderTagLists?.();
+const refreshWeaponSelect = (selected) => weaponModule?.refreshWeaponSelect?.(selected);
+const refreshAmmoSelect = (selected) => weaponModule?.refreshAmmoSelect?.(selected);
+const loadWeaponIntoForm = (index) => weaponModule?.loadWeaponIntoForm?.(index);
+const loadAmmoIntoForm = (key) => weaponModule?.loadAmmoIntoForm?.(key);
+
+(function initApp() {
   const ammoDatalistContainer = document.createElement("div");
   ammoDatalistContainer.id = "ammo-datalists";
   document.body.appendChild(ammoDatalistContainer);
-  const saveUnitButton = document.getElementById("saveUnit");
-  const addUnitButton = document.getElementById("addUnit");
-  const deleteUnitButton = document.getElementById("deleteUnit");
-  const downloadLogsBtn = document.getElementById("downloadLogs");
-  const viewModeBtn = document.getElementById("viewModeBtn");
-  const editModeBtn = document.getElementById("editModeBtn");
-  const formationOverviewBtn = document.getElementById("formationOverviewBtn");
-  const formationEditorBtn = document.getElementById("formationEditorBtn");
-  const nationOverviewBtn = document.getElementById("nationOverviewBtn");
-  const nationEditorBtn = document.getElementById("nationEditorBtn");
-  // Overview buttons removed in nav
-  const viewSection = document.getElementById("viewSection");
-  const editSection = document.getElementById("editSection");
-  const viewControlsSection = document.getElementById("viewControlsSection");
-  const formationEditorSection = document.getElementById("formationEditorSection");
-  const formationOverviewSection = document.getElementById("formationOverviewSection");
-  const nationEditorSection = document.getElementById("nationEditorSection");
-  const nationOverviewSection = document.getElementById("nationOverviewSection");
-  const weaponEditorSection = document.getElementById("weaponEditorSection");
-  const ammoEditorSection = document.getElementById("ammoEditorSection");
-  const nationOverviewSelect = document.getElementById("nationOverviewSelect");
-  const searchInput = document.getElementById("searchInput");
-  const filterCategoryInput = document.getElementById("filterCategory");
-  const filterInternalSelect = document.getElementById("filterInternal");
-  const filterTierSelect = document.getElementById("filterTier");
-  const sortUnitsSelect = document.getElementById("sortUnits");
-  const unitBrowser = document.getElementById("unitBrowser");
-  const formationSelect = document.getElementById("formationSelect");
-  const formationName = document.getElementById("formationName");
-  const formationDescription = document.getElementById("formationDescription");
-  const formationImage = document.getElementById("formationImage");
-  const weaponEditorBtn = document.getElementById("weaponEditorBtn");
-  const ammoEditorBtn = document.getElementById("ammoEditorBtn");
-  const topUnitsList = document.getElementById("topUnitsList");
-  const topFormationsList = document.getElementById("topFormationsList");
-  const topNationsList = document.getElementById("topNationsList");
-  const topUnitsBlock = document.getElementById("topUnitsBlock");
-  const topFormationsBlock = document.getElementById("topFormationsBlock");
-  const topNationsBlock = document.getElementById("topNationsBlock");
-  const statsBtn = document.getElementById("statsBtn");
-  const statsSection = document.getElementById("statsSection");
-  const statsTypeButtons = document.querySelectorAll("[data-stats-type]");
-  const addFormationButton = document.getElementById("addFormation");
-  const saveFormationButton = document.getElementById("saveFormation");
-  const deleteFormationButton = document.getElementById("deleteFormation");
-  const nationSelect = document.getElementById("nationSelect");
-  const nationName = document.getElementById("nationName");
-  const nationDescription = document.getElementById("nationDescription");
-  const nationImage = document.getElementById("nationImage");
-  const nationFormationsList = document.getElementById("nationFormationsList");
-  const addNationButton = document.getElementById("addNation");
-  const saveNationButton = document.getElementById("saveNation");
-  const deleteNationButton = document.getElementById("deleteNation");
-  const exportNationButton = document.getElementById("exportNation");
-  const importNationButton = document.getElementById("importNation");
-  const importNationFile = document.getElementById("importNationFile");
-  const categoryList = document.getElementById("categoryList");
-  const addCategoryButton = document.getElementById("addCategory");
-  const weaponSelect = document.getElementById("weaponSelect");
-  const weaponSearch = document.getElementById("weaponSearch");
-  const exportWeaponLibBtn = document.getElementById("exportWeaponLib");
-  const importWeaponLibBtn = document.getElementById("importWeaponLib");
-  const importWeaponFile = document.getElementById("importWeaponFile");
-  const weaponName = document.getElementById("weaponName");
-  const weaponCaliber = document.getElementById("weaponCaliber");
-  const weaponRange = document.getElementById("weaponRange");
-  const weaponCategory = document.getElementById("weaponCategory");
-  const weaponMuzzle = document.getElementById("weaponMuzzle");
-  const weaponDispersion = document.getElementById("weaponDispersion");
-  const weaponBarrel = document.getElementById("weaponBarrel");
-  const weaponReload = document.getElementById("weaponReload");
-  const weaponFireModes = document.getElementById("weaponFireModes");
-  const saveWeaponButton = document.getElementById("saveWeapon");
-  const addWeaponButton = document.getElementById("addWeapon");
-  const duplicateWeaponButton = document.getElementById("duplicateWeapon");
-  const deleteWeaponButton = document.getElementById("deleteWeapon");
-  const weaponPreview = document.getElementById("weaponPreview");
-  const ammoSelect = document.getElementById("ammoSelect");
-  const ammoSearch = document.getElementById("ammoSearch");
-  const exportAmmoLibBtn = document.getElementById("exportAmmoLib");
-  const importAmmoLibBtn = document.getElementById("importAmmoLib");
-  const importAmmoFile = document.getElementById("importAmmoFile");
-  const ammoNameInput = document.getElementById("ammoName");
-  const ammoCaliberInput = document.getElementById("ammoCaliber");
-  const ammoCaliberDescInput = document.getElementById("ammoCaliberDesc");
-  const ammoPenetrationInput = document.getElementById("ammoPenetration");
-  const ammoHEInput = document.getElementById("ammoHE");
-  const ammoDispersionInput = document.getElementById("ammoDispersion");
-  const ammoRangeInput = document.getElementById("ammoRange");
-  const ammoGrainInput = document.getElementById("ammoGrain");
-  const ammoNotesInput = document.getElementById("ammoNotes");
-  const saveAmmoButton = document.getElementById("saveAmmoTemplate");
-  const addAmmoButton = document.getElementById("addAmmoTemplate");
-  const duplicateAmmoButton = document.getElementById("duplicateAmmo");
-  const deleteAmmoButton = document.getElementById("deleteAmmo");
-  const ammoPreview = document.getElementById("ammoPreview");
-  const ammoCaliberList = document.getElementById("ammoCaliberList");
-  const unitImageDrop = document.getElementById("unitImageDrop");
-  const formationImageDrop = document.getElementById("formationImageDrop");
-  const nationImageDrop = document.getElementById("nationImageDrop");
-  const openUnitImagePicker = document.getElementById("openUnitImagePicker");
-  const openFormationImagePicker = document.getElementById("openFormationImagePicker");
-  const openNationImagePicker = document.getElementById("openNationImagePicker");
-  const imagePicker = document.getElementById("imagePicker");
-  const imageGrid = document.getElementById("imageGrid");
-  const imageSearch = document.getElementById("imageSearch");
-  const closeImagePickerBtn = document.getElementById("closeImagePicker");
-  const tagCategoryName = document.getElementById("tagCategoryName");
-  const tagCategoryColor = document.getElementById("tagCategoryColor");
-  const tagCaliberName = document.getElementById("tagCaliberName");
-  const tagCaliberColor = document.getElementById("tagCaliberColor");
-  const addCategoryTagBtn = document.getElementById("addCategoryTag");
-  const addCaliberTagBtn = document.getElementById("addCaliberTag");
-  const categoryTagList = document.getElementById("categoryTagList");
-  const caliberTagList = document.getElementById("caliberTagList");
 
   let currentMode = "view";
   let statsChart;
   let selectedRadar = { unit: null, formation: null, nation: null };
   let statsViewType = "unit";
-  const weaponTemplates = {};
-  const ammoLibrary = {};
   const imageLibrary = { units: [], formations: [], nations: [] };
-  const weaponTags = { categories: {}, calibers: {} };
   const diagLog = [];
   const logEvent = (msg, extra) => {
     const entry = { t: new Date().toISOString(), msg, extra };
@@ -197,62 +233,65 @@
   let hostSaveTimer = null;
   let autoSaveInterval = null;
   let localDbAttempted = false;
-  const themes = {
-    default: {
-      bg: "#081528",
-      panel: "rgba(255, 255, 255, 0.08)",
-      panelStrong: "rgba(255, 255, 255, 0.12)",
-      stroke: "rgba(255, 255, 255, 0.22)",
-      text: "#eaf3ff",
-      muted: "#afc0d8",
-      accent: "#76c3ff",
-    },
-    midnight: {
-      bg: "#0d0b1f",
-      panel: "rgba(255, 255, 255, 0.07)",
-      panelStrong: "rgba(255, 255, 255, 0.12)",
-      stroke: "rgba(255, 255, 255, 0.28)",
-      text: "#f1eaff",
-      muted: "#bcb4d8",
-      accent: "#9f7bff",
-    },
-    emerald: {
-      bg: "#062016",
-      panel: "rgba(255, 255, 255, 0.07)",
-      panelStrong: "rgba(255, 255, 255, 0.12)",
-      stroke: "rgba(255, 255, 255, 0.28)",
-      text: "#e4f7f0",
-      muted: "#a7c9bc",
-      accent: "#4ade80",
-    },
-    contrast: {
-      bg: "#0b0b0b",
-      panel: "rgba(255, 255, 255, 0.14)",
-      panelStrong: "rgba(255, 255, 255, 0.2)",
-      stroke: "rgba(255, 255, 255, 0.35)",
-      text: "#ffffff",
-      muted: "#d0d0d0",
-      accent: "#ffcc33",
-    },
-  };
+  const dirtyState = { unit: false, nation: false };
+  const autoSaveTimers = { unit: null, nation: null };
+  function updateDirtyIndicator() {
+    if (!document || !document.body) return;
+    const anyDirty = dirtyState.unit || dirtyState.nation;
+    if (anyDirty) {
+      document.body.dataset.dirty = "true";
+    } else {
+      delete document.body.dataset.dirty;
+    }
+  }
 
-  function markDirty() { }
-  function resetDirty() { }
-  function autoSaveUnit() { }
-  function autoSaveNation() { }
+  function markDirty(scope = "unit") {
+    if (!dirtyState[scope]) {
+      dirtyState[scope] = true;
+      updateDirtyIndicator();
+    }
+  }
+  function resetDirty(scope = "unit") {
+    if (dirtyState[scope]) {
+      dirtyState[scope] = false;
+      updateDirtyIndicator();
+    }
+  }
 
-  const fallbackImage =
-    "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=60";
-  const subcategoryMap = {
-    "": ["None"],
-    INF: ["None", "Special Forces", "Special Operations Forces", "Shock", "Regular", "Reserve", "Militia", "Guerrilla"],
-    VEH: ["None", "Wheeled", "Tracked"],
-    TNK: ["None", "Light Tank", "Main Battle Tank", "Heavy Tank"],
-    IFV: ["None", "Tracked IFV", "Wheeled IFV"],
-    SUP: ["None", "Artillery", "Air Defense", "Mortar", "Missile"],
-    AIR: ["None", "Fixed Wing", "Rotary Wing", "UAV"],
-    LOG: ["None", "Transport", "Supply", "Engineering"],
-  };
+  function autoSaveUnit() {
+    markDirty("unit");
+    clearTimeout(autoSaveTimers.unit);
+    autoSaveTimers.unit = setTimeout(() => {
+      const parsed = ensureDataObject();
+      if (!parsed.units.length) parsed.units.push(emptyUnit());
+      let idx = parseInt(unitSelect?.value ?? "0", 10);
+      if (Number.isNaN(idx) || idx < 0 || idx >= parsed.units.length) idx = 0;
+      parsed.units[idx] = buildUnitFromForm();
+      dataInput.value = JSON.stringify(parsed, null, 2);
+      resetDirty("unit");
+      debouncedHostSave();
+      logEvent("autoSaveUnit", { idx });
+    }, 900);
+  }
+
+  function autoSaveNation() {
+    markDirty("nation");
+    clearTimeout(autoSaveTimers.nation);
+    autoSaveTimers.nation = setTimeout(() => {
+      const parsed = ensureDataObject();
+      if (!parsed.nations.length) return;
+      let idx = parseInt(nationSelect?.value ?? "0", 10);
+      if (Number.isNaN(idx) || idx < 0 || idx >= parsed.nations.length) idx = 0;
+      parsed.nations[idx] = buildNationFromForm();
+      dataInput.value = JSON.stringify(parsed, null, 2);
+      refreshNationSelect(parsed, idx);
+      refreshNationOverviewSelect(parsed, idx);
+      renderNations();
+      resetDirty("nation");
+      debouncedHostSave();
+      logEvent("autoSaveNation", { idx });
+    }, 900);
+  }
 
   function populateSubcategories(selectedInternal = "", value = "") {
     if (!unitSubCategory) return;
@@ -269,174 +308,6 @@
 
   populateSubcategories("", "");
 
-  const sampleData = {
-    units: [
-      {
-        name: "Raptor Squad",
-        price: "$1,050",
-        category: "Infantry",
-        preset: "infantry",
-        internalCategory: "INF",
-        subCategory: "Shock",
-        trainingLevel: "Standard",
-        description: "Light infantry squad with grenadier attachments.",
-        tier: "Tier 2",
-        training: "Advanced",
-        proficiency: "Marksmen",
-        image:
-          "https://images.unsplash.com/photo-1529070538774-1843cb3265df?auto=format&fit=crop&w=1200&q=60",
-        stats: {
-          armor: "Kevlar IIIA",
-          health: 120,
-          squadSize: 4,
-          visualRange: "550 m",
-          stealth: "-10%",
-          speed: "4.5 m/s",
-          weight: "Medium",
-        },
-        grenades: { smoke: 2, flash: 2, thermite: 1, frag: 2, total: 7 },
-        capabilities: {
-          staticLineJump: true,
-          haloHaho: true,
-          sprint: { distance: "160 m", speed: "7 m/s", cooldown: "22 s" },
-          laserDesignator: true,
-        },
-        guns: [
-          {
-            name: "M4A1",
-            count: 4,
-            range: "400 m",
-            ammoPerSoldier: "180",
-            totalAmmo: "720",
-            penetration: "Tier 2",
-            heDeadliness: "Low",
-            dispersion: "0.6 MOA",
-            category: "Rifle",
-            ammoTypes: [
-              { name: "M855A1", penetration: "5.56: light armor", heDeadliness: "Low", dispersion: "0.6 MOA" },
-              { name: "MK262", penetration: "Better barrier", heDeadliness: "Low", dispersion: "0.5 MOA" },
-            ],
-            fireModes: ["Auto", "Burst", "Semi"],
-          },
-          {
-            name: "M320 (HE/SMK mix)",
-            count: 2,
-            range: "250 m",
-            ammoPerSoldier: "18",
-            totalAmmo: "36",
-            penetration: "1.5 cm RHA",
-            heDeadliness: "High",
-            dispersion: "0.9 MOA",
-            category: "Launcher",
-            ammoTypes: [
-              { name: "HE", penetration: "Frag", heDeadliness: "High", dispersion: "1.0 MOA" },
-              { name: "Smoke", penetration: "N/A", heDeadliness: "Low", dispersion: "1.0 MOA" },
-            ],
-            fireModes: ["Indirect"],
-          },
-        ],
-        equipment: [
-          { name: "Radio Kit", count: 1, type: "Comms", notes: "Encrypted" },
-          { name: "Med Kit", count: 1, type: "Support", notes: "Squad-level" },
-        ],
-      },
-      {
-        name: "Titan MBT",
-        price: "$4,900",
-        category: "Armor",
-        preset: "vehicle",
-        internalCategory: "TNK",
-        trainingLevel: "Veteran",
-        description: "Heavy MBT with composite/ERA protection.",
-        tier: "Heavy",
-        training: "Armored Corps",
-        proficiency: "Veteran",
-        image:
-          "https://images.unsplash.com/photo-1505594444998-0e6850b05b7e?auto=format&fit=crop&w=1200&q=60",
-        stats: {
-          armor: "Composite/ERA",
-          health: 950,
-          squadSize: 3,
-          visualRange: "2.4 km",
-          stealth: "None",
-          speed: "70 km/h",
-          weight: "62 t",
-        },
-        grenades: { smoke: 12, flash: 0, thermite: 0, frag: 0, total: 12 },
-        capabilities: {
-          staticLineJump: false,
-          haloHaho: false,
-          sprint: { distance: "N/A", speed: "-", cooldown: "-" },
-          laserDesignator: "Thermal + LRF",
-        },
-        guns: [
-          {
-            name: "120mm Smoothbore",
-            count: 1,
-            range: "3.5 km",
-            ammoPerSoldier: "-",
-            totalAmmo: "36",
-            penetration: "APFSDS: 650mm",
-            heDeadliness: "HEAT: 6.5m",
-            dispersion: "0.35 mil",
-            category: "Cannon",
-            ammoTypes: [
-              { name: "APFSDS", penetration: "650mm RHA", heDeadliness: "Low", dispersion: "0.35 mil" },
-              { name: "HEAT", penetration: "450mm RHA", heDeadliness: "6.5m blast", dispersion: "0.4 mil" },
-            ],
-            fireModes: ["Direct", "Top Attack"],
-          },
-          {
-            name: "Coaxial 7.62",
-            count: 1,
-            range: "800 m",
-            ammoPerSoldier: "-",
-            totalAmmo: "4,800",
-            penetration: "Tier 1",
-            heDeadliness: "Low",
-            dispersion: "1.2 MOA",
-            category: "Coax MG",
-            fireModes: ["Direct"],
-          },
-          {
-            name: "RCWS .50",
-            count: 1,
-            range: "1,200 m",
-            ammoPerSoldier: "-",
-            totalAmmo: "800",
-            penetration: "12mm RHA",
-            heDeadliness: "Low/HEI",
-            dispersion: "0.8 MOA",
-            category: "RCWS",
-            fireModes: ["Direct"],
-          },
-        ],
-        equipment: [
-          { name: "Smoke Launchers", count: 12, type: "Defensive", notes: "360° coverage" },
-          { name: "Spare Tracks", count: 2, type: "Maintenance", notes: "" },
-        ],
-      },
-    ],
-    formations: [
-      {
-        name: "Northern Coalition Core",
-        description: "Infantry and armor core forces",
-        categories: [
-          { name: "Infantry", units: [0] },
-          { name: "Armor", units: [1] },
-        ],
-      },
-    ],
-    nations: [
-      {
-        name: "Northern Coalition",
-        description: "Coalition of northern states with combined arms",
-        image:
-          "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1200&q=60",
-        formations: [0],
-      },
-    ],
-  };
 
   function emptyUnit() {
     return {
@@ -489,6 +360,16 @@
     }
   }
 
+  function ensureDataObject(seed) {
+    let parsed = seed;
+    if (!parsed) parsed = parseData(false);
+    if (!parsed || typeof parsed !== "object") parsed = {};
+    if (!Array.isArray(parsed.units)) parsed.units = [];
+    if (!Array.isArray(parsed.formations)) parsed.formations = [];
+    if (!Array.isArray(parsed.nations)) parsed.nations = [];
+    return parsed;
+  }
+
   function showMessage(text, type = "success") {
     flash.textContent = text;
     flash.className = `alert ${type}`;
@@ -497,49 +378,6 @@
   function clearMessage() {
     flash.textContent = "";
     flash.className = "alert hidden";
-  }
-
-  function valueOrNA(value) {
-    return value === undefined || value === null || value === "" ? "N/A" : value;
-  }
-
-  function yesNo(value) {
-    if (value === undefined || value === null) return "N/A";
-    return value === true || value === "true" ? "Yes" : value === false || value === "false" ? "No" : value;
-  }
-
-  function parseBoolish(value) {
-    if (value === "" || value === undefined || value === null) return "";
-    if (value === true || value === "true") return true;
-    if (value === false || value === "false") return false;
-    return value;
-  }
-
-  function createPill(label, value) {
-    const pill = document.createElement("div");
-    pill.className = "stat-pill";
-    const key = document.createElement("span");
-    key.className = "label";
-    key.textContent = label;
-    const val = document.createElement("span");
-    val.className = "strong";
-    val.textContent = valueOrNA(value);
-    pill.append(key, val);
-    return pill;
-  }
-
-  function sectionTitle(text) {
-    const el = document.createElement("div");
-    el.className = "section-title";
-    el.textContent = text;
-    return el;
-  }
-
-  function getTagColor(kind, key) {
-    if (!key) return null;
-    if (kind === "category") return weaponTags.categories[key] || null;
-    if (kind === "caliber") return weaponTags.calibers[key] || null;
-    return null;
   }
 
   function buildGunRow(gun) {
@@ -559,7 +397,7 @@
     const categoryBadge = document.createElement("div");
     categoryBadge.className = "gun-badge";
     categoryBadge.textContent = valueOrNA(gun.category || "Uncategorized");
-    const catColor = getTagColor("category", gun.category);
+    const catColor = getTagColor("category", gun.category, weaponTags);
     if (catColor) {
       categoryBadge.style.background = catColor;
       categoryBadge.style.color = "#0b1220";
@@ -590,7 +428,7 @@
       item.className = "gun-meta";
       let display = valueOrNA(value);
       if (label === "Caliber") {
-        const color = getTagColor("caliber", value);
+        const color = getTagColor("caliber", value, weaponTags);
         if (color) display = `<span class="color-badge"><span class="color-dot" style="background:${color}"></span>${value}</span>`;
       }
       item.innerHTML = `<span class="gun-label">${label}</span><div class="strong">${display}</div>`;
@@ -625,11 +463,11 @@
         item.className = "gun-meta";
         let display = valueOrNA(value);
         if (label === "Category") {
-          const color = getTagColor("category", value);
+        const color = getTagColor("category", value, weaponTags);
           if (color) display = `<span class="color-badge"><span class="color-dot" style="background:${color}"></span>${value}</span>`;
         }
         if (label === "Caliber") {
-          const color = getTagColor("caliber", value);
+        const color = getTagColor("caliber", value, weaponTags);
           if (color) display = `<span class="color-badge"><span class="color-dot" style="background:${color}"></span>${value}</span>`;
         }
         item.innerHTML = `<span class="gun-label">${label}</span><div class="strong">${display}</div>`;
@@ -1064,6 +902,35 @@
     });
   }
 
+  function processTagInput(nameInput, colorInput, targetMap) {
+    if (!nameInput || !colorInput || !targetMap) return;
+    const label = (nameInput.value || "").trim();
+    if (!label) {
+      showMessage("Enter a name before saving the tag.", "error");
+      return;
+    }
+    const color = (colorInput.value || "").trim();
+    if (!color) {
+      if (targetMap[label]) {
+        delete targetMap[label];
+        safeRenderTagLists();
+        showMessage(`Removed tag "${label}".`, "success");
+        debouncedHostSave();
+      } else {
+        showMessage("Pick a color for the tag.", "error");
+      }
+      return;
+    }
+    if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color)) {
+      showMessage("Provide a valid hex color (e.g., #ff8800).", "error");
+      return;
+    }
+    targetMap[label] = color;
+    safeRenderTagLists();
+    showMessage(`Saved tag "${label}".`, "success");
+    debouncedHostSave();
+  }
+
   function refreshUnitSelect(data, selectedIndex = 0) {
     if (!data || !Array.isArray(data.units)) return;
     unitSelect.innerHTML = "";
@@ -1116,300 +983,37 @@
 
   function attachDirtyHandlers() { }
 
-  function rebuildWeaponLibrary(dataObj) {
-    if (!weaponLibrary) return;
-    while (weaponLibrary.firstChild) weaponLibrary.removeChild(weaponLibrary.firstChild);
-    if (!dataObj || !Array.isArray(dataObj.units)) return;
-    const names = new Set(Object.keys(weaponTemplates));
-    dataObj.units.forEach((u) => {
-      (u.guns || []).forEach((g) => {
-        if (g.name) {
-          names.add(g.name);
-          weaponTemplates[g.name] = deepClone(g);
-        }
-        if (g.caliber) {
-          const cal = g.caliber;
-          ammoLibrary[cal] = ammoLibrary[cal] || [];
-          (g.ammoTypes || []).forEach((ammo) => {
-            if (!ammo || !ammo.name) return;
-            if (!ammoLibrary[cal].some((a) => a.name === ammo.name)) {
-              ammoLibrary[cal].push(deepClone({ ...ammo, caliber: cal }));
-            }
-          });
-        }
-
-        function renderTagLists() {
-          if (categoryTagList) {
-            categoryTagList.innerHTML = "";
-            Object.entries(weaponTags.categories).forEach(([name, color]) => {
-              const badge = document.createElement("span");
-              badge.className = "color-badge";
-              const dot = document.createElement("span");
-              dot.className = "color-dot";
-              dot.style.background = color;
-              badge.append(dot, document.createTextNode(name));
-              categoryTagList.appendChild(badge);
-            });
-          }
-          if (caliberTagList) {
-            caliberTagList.innerHTML = "";
-            Object.entries(weaponTags.calibers).forEach(([name, color]) => {
-              const badge = document.createElement("span");
-              badge.className = "color-badge";
-              const dot = document.createElement("span");
-              dot.className = "color-dot";
-              dot.style.background = color;
-              badge.append(dot, document.createTextNode(name));
-              caliberTagList.appendChild(badge);
-            });
-          }
-        }
-        // Expose for any late calls; keeps runtime happy if caching old references.
-        if (typeof window !== "undefined") window.renderTagLists = renderTagLists;
-        if (typeof window !== "undefined") window.downloadLogs = () => {
-          const blob = new Blob([JSON.stringify(diagLog, null, 2)], { type: "application/json" });
-          const link = document.createElement("a");
-          link.href = URL.createObjectURL(blob);
-          link.download = "rts-diagnostics.json";
-          link.click();
-        };
-        function safeRenderTagLists() {
-          try {
-            if (typeof renderTagLists === "function") {
-              renderTagLists();
-            }
-          } catch (e) {
-            console.warn("renderTagLists unavailable", e);
-          }
-        }
-      });
-    });
-    Array.from(names)
-      .sort()
-      .forEach((name) => {
-        const opt = document.createElement("option");
-        opt.value = name;
-        weaponLibrary.appendChild(opt);
-      });
-    refreshWeaponSelect();
-    refreshAmmoSelect();
-  }
-
-  const refreshWeaponSelect = (selectedName = null) => {
-    if (!weaponSelect) return;
-    weaponSelect.innerHTML = "";
-    const filter = (weaponSearch?.value || "").toLowerCase();
-
-    const names = Object.keys(weaponTemplates).sort();
-    names.forEach((name) => {
-      if (filter && !name.toLowerCase().includes(filter)) return;
-      const opt = document.createElement("option");
-      opt.value = name;
-      opt.textContent = name;
-      if (name === selectedName) opt.selected = true;
-      weaponSelect.appendChild(opt);
-    });
-    // Trigger load if selection changed or empty
-    if (weaponSelect.value) {
-      loadWeaponIntoForm(weaponSelect.value);
-    } else {
-      // Clear form if no match
-      weaponName.value = "";
-      // ... clear other fields if desired, or leave last state
-    }
-  };
-
-  const refreshAmmoSelect = (selectedKey = null) => {
-    if (!ammoSelect) return;
-    ammoSelect.innerHTML = "";
-    const filter = (ammoSearch?.value || "").toLowerCase();
-
-    const keys = Object.keys(ammoLibrary).sort();
-    keys.forEach((cal) => {
-      const list = ammoLibrary[cal];
-      list.forEach((ammo, idx) => {
-        const name = ammo.name || `Ammo ${idx + 1}`;
-        const key = `${cal}::${name}`;
-        if (filter && !key.toLowerCase().includes(filter)) return;
-
-        const opt = document.createElement("option");
-        opt.value = key;
-        opt.textContent = `${name} (${cal})`;
-        if (key === selectedKey) opt.selected = true;
-        ammoSelect.appendChild(opt);
-      });
-    });
-    if (ammoSelect.value) {
-      loadAmmoIntoForm(ammoSelect.value);
-    }
-  };
-
-  function loadWeaponIntoForm(indexOrName = 0) {
-    if (!weaponSelect) return;
-    const names = Object.keys(weaponTemplates).sort();
-    const name = typeof indexOrName === "string" ? indexOrName : names[indexOrName] || names[0];
-    const weapon = weaponTemplates[name] || {};
-    weaponSelect.value = name || "";
-    weaponName.value = weapon.name || "";
-    weaponCaliber.value = weapon.caliber || "";
-    weaponRange.value = weapon.range || "";
-    weaponCategory.value = weapon.category || "";
-    weaponMuzzle.value = weapon.muzzleVelocity || "";
-    weaponDispersion.value = weapon.dispersion || "";
-    weaponBarrel.value = weapon.barrelLength || "";
-    weaponReload.value = weapon.reloadSpeed || "";
-    weaponFireModes.value = Array.isArray(weapon.fireModes) ? weapon.fireModes.join(", ") : weapon.fireModes || "";
-  }
-
-  function saveWeaponTemplate() {
-    const name = weaponName.value.trim();
-    if (!name) {
-      showMessage("Weapon name is required.", "error");
-      return;
-    }
-    if (weaponCaliber.value && !/^\d{1,3},\d{1,3}x\d{1,3}$/.test(weaponCaliber.value)) {
-      showMessage("Caliber must match pattern like 5,56x45.", "error");
-      return;
-    }
-    weaponTemplates[name] = {
-      name,
-      caliber: weaponCaliber.value,
-      range: weaponRange.value,
-      category: weaponCategory.value,
-      muzzleVelocity: weaponMuzzle.value ? Number(weaponMuzzle.value) : "",
-      dispersion: weaponDispersion.value ? Number(weaponDispersion.value) : "",
-      barrelLength: weaponBarrel.value ? Number(weaponBarrel.value) : "",
-      reloadSpeed: weaponReload.value ? Number(weaponReload.value) : "",
-      fireModes: (weaponFireModes.value || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    };
-    refreshWeaponSelect(name);
-    rebuildWeaponLibrary(parseData(false));
-    saveToStorage();
-    showMessage("Weapon saved.", "success");
-  }
-
-  function addWeaponTemplate() {
-    weaponName.value = "";
-    weaponCaliber.value = "";
-    weaponRange.value = "";
-    weaponCategory.value = "";
-    weaponMuzzle.value = "";
-    weaponDispersion.value = "";
-    weaponBarrel.value = "";
-    weaponReload.value = "";
-    weaponFireModes.value = "";
-    weaponSelect.value = "";
-  }
-
-  function deleteWeaponTemplate() {
-    const name = weaponSelect.value;
-    if (name && weaponTemplates[name]) {
-      delete weaponTemplates[name];
-      refreshWeaponSelect();
-      rebuildWeaponLibrary(parseData(false));
-      saveToStorage();
-      showMessage("Weapon deleted.", "success");
-    }
-  }
-
-  function loadAmmoIntoForm(keyOrIndex = "") {
-    if (!ammoSelect) return;
-    const items = [];
-    Object.keys(ammoLibrary).forEach((cal) => {
-      (ammoLibrary[cal] || []).forEach((a, idx) => items.push({ key: `${cal}::${a.name || idx}`, data: a }));
-    });
-    const selected =
-      typeof keyOrIndex === "string"
-        ? items.find((i) => i.key === keyOrIndex) || items[0]
-        : items[keyOrIndex] || items[0];
-    if (!selected) return;
-    ammoSelect.value = selected.key;
-    const a = selected.data || {};
-    ammoNameInput.value = a.name || "";
-    ammoCaliberInput.value = a.caliber || "";
-    ammoCaliberDescInput.value = a.caliberDesc || "";
-    ammoPenetrationInput.value = a.penetration || "";
-    ammoHEInput.value = a.heDeadliness || "";
-    ammoDispersionInput.value = a.dispersion || "";
-    ammoRangeInput.value = a.rangeMod || "";
-    if (ammoGrainInput) ammoGrainInput.value = a.grain ?? "";
-    ammoNotesInput.value = a.notes || "";
-  }
-
-  function saveAmmoTemplate() {
-    const name = ammoNameInput.value.trim();
-    const cal = ammoCaliberInput.value.trim();
-    if (!cal || !/^\d{1,3},\d{1,3}x\d{1,3}$/.test(cal)) {
-      showMessage("Ammo caliber must match pattern like 5,56x45.", "error");
-      return;
-    }
-    if (!name) {
-      showMessage("Ammo name is required.", "error");
-      return;
-    }
-    ammoLibrary[cal] = ammoLibrary[cal] || [];
-    const existing = ammoLibrary[cal].find((a) => a.name === name);
-    const entry = {
-      name,
-      caliber: cal,
-      caliberDesc: ammoCaliberDescInput.value || "",
-      penetration: ammoPenetrationInput.value ? Number(ammoPenetrationInput.value) : "",
-      heDeadliness: ammoHEInput.value ? Number(ammoHEInput.value) : "",
-      dispersion: ammoDispersionInput.value ? Number(ammoDispersionInput.value) : "",
-      rangeMod: ammoRangeInput.value ? Number(ammoRangeInput.value) : "",
-      grain: ammoGrainInput?.value ? Number(ammoGrainInput.value) : 0,
-      notes: ammoNotesInput.value || "",
-    };
-    if (existing) {
-      Object.assign(existing, entry);
-    } else {
-      ammoLibrary[cal].push(entry);
-    }
-    refreshAmmoSelect(`${cal}::${name}`);
-    rebuildWeaponLibrary(parseData(false));
-    saveToStorage();
-    showMessage("Ammo saved.", "success");
-  }
-
-  function addAmmoTemplate() {
-    ammoNameInput.value = "";
-    ammoCaliberInput.value = "";
-    ammoCaliberDescInput.value = "";
-    ammoPenetrationInput.value = "";
-    ammoHEInput.value = "";
-    ammoDispersionInput.value = "";
-    ammoRangeInput.value = "";
-    if (ammoGrainInput) ammoGrainInput.value = "";
-    ammoNotesInput.value = "";
-    ammoSelect.value = "";
-  }
-
-  function deleteAmmoTemplate() {
-    const key = ammoSelect.value;
-    if (!key) return;
-    const [cal, name] = key.split("::");
-    if (ammoLibrary[cal]) {
-      ammoLibrary[cal] = ammoLibrary[cal].filter((a) => a.name !== name);
-      if (!ammoLibrary[cal].length) delete ammoLibrary[cal];
-      refreshAmmoSelect();
-      rebuildWeaponLibrary(parseData(false));
-      saveToStorage();
-      showMessage("Ammo deleted.", "success");
-    }
-  }
-
   function createDirtyPrompt() { }
 
+  function getGunListElement() {
+    return gunList || document.getElementById("gunList");
+  }
+
+  function getAmmoDatalist(caliber) {
+    try {
+      if (!caliber) return null;
+      const safeCal = `${caliber}`;
+      const id = `ammo-dl-${safeCal.replace(/[^a-z0-9]/gi, "")}`;
+      let list = document.getElementById(id);
+      if (!list) {
+        list = document.createElement("datalist");
+        list.id = id;
+        document.body.appendChild(list);
+      }
+      return list;
+    } catch {
+      return null;
+    }
+  }
+
   function addGunEditRow(gun = {}) {
-    if (!gunList) {
+    const list = getGunListElement();
+    if (!list) {
       console.error("gunList element not found!");
       showMessage("Error: gunList element missing.", "error");
       return;
     }
-    if (gunList.children.length >= 10) {
+    if (list.children.length >= 10) {
       showMessage("Gun limit reached (10).", "error");
       return;
     }
@@ -1428,6 +1032,10 @@
     row.appendChild(collapseBar);
     const body = document.createElement("div");
     body.className = "gun-body";
+    collapseBtn.addEventListener("click", () => {
+      const hidden = body.classList.toggle("hidden-section");
+      collapseBtn.textContent = hidden ? "Expand weapon" : "Collapse weapon";
+    });
 
     const fields = [
       ["Category", "category"],
@@ -1923,12 +1531,14 @@
     actionWrap.appendChild(removeBtn);
     row.appendChild(actionWrap);
 
-    gunList.appendChild(row);
+    list.appendChild(row);
     autoSaveUnit();
   }
 
   function collectGunRows() {
-    return Array.from(gunList.querySelectorAll(".gun-edit-row")).map((row) => {
+    const list = getGunListElement();
+    if (!list) return [];
+    return Array.from(list.querySelectorAll(".gun-edit-row")).map((row) => {
       const obj = {};
       row.querySelectorAll("input").forEach((input) => {
         if (!input.dataset.key) return;
@@ -2101,10 +1711,13 @@
     sprintSpeed.value = toNumber(sprint.speed) || "";
     sprintCooldown.value = toNumber(sprint.cooldown) || "";
 
-    gunList.innerHTML = "";
-    const guns = Array.isArray(unit.guns) ? unit.guns.slice(0, 10) : [];
-    guns.forEach((gun) => addGunEditRow(gun));
-    if (typeof logEvent === "function") logEvent("gunsLoaded", { count: guns.length, unit: unit.name || index });
+    const list = getGunListElement();
+    if (list) {
+      list.innerHTML = "";
+      const guns = Array.isArray(unit.guns) ? unit.guns.slice(0, 10) : [];
+      guns.forEach((gun) => addGunEditRow(gun));
+      if (typeof logEvent === "function") logEvent("gunsLoaded", { count: guns.length, unit: unit.name || index });
+    }
 
     equipmentList.innerHTML = "";
     (Array.isArray(unit.equipment) ? unit.equipment.slice(0, 10) : []).forEach((item) => addEquipmentRow(item));
@@ -2296,6 +1909,7 @@
     renderCards();
     showMessage(`Saved updates to unit ${idx + 1}.`, "success");
     debouncedHostSave();
+    resetDirty("unit");
     return true;
   }
 
@@ -2374,6 +1988,7 @@
     renderNations();
     showMessage(`Saved nation ${idx + 1}.`, "success");
     debouncedHostSave();
+    resetDirty("nation");
     return true;
   }
 
@@ -2401,6 +2016,7 @@
     loadNationIntoForm(newIndex);
     renderNations();
     showMessage("Deleted nation.", "success");
+    resetDirty("nation");
   }
 
   function addNewUnit() {
@@ -2435,6 +2051,7 @@
     const remaining = parsed.units.length;
     const name = deleted?.name ? `"${deleted.name}"` : "unit";
     showMessage(`Deleted ${name}. ${remaining} unit(s) remain.`, "success");
+    resetDirty("unit");
   }
   function buildCard(unit, idx) {
     const card = document.createElement("article");
@@ -2606,40 +2223,20 @@
     return card;
   }
 
-  function renderCards() {
-    clearMessage();
+  function getActiveData() {
+    const parsed = parseData(false);
+    if (parsed && Array.isArray(parsed.units) && parsed.units.length) return parsed;
+    return ensureDataObject(parsed);
+  }
 
-    let parsed = parseData();
-    cardsContainer.innerHTML = "";
-    if (!parsed || !Array.isArray(parsed.units) || !parsed.units.length) {
-      loadSample();
-      logEvent("renderCards_empty_fallback");
-      parsed = parseData();
-    }
-    if (!parsed || !Array.isArray(parsed.units) || !parsed.units.length) {
-      renderUnitBrowser([]);
-      showMessage("No units found in data.", "error");
-      return;
-    }
-    rebuildWeaponLibrary(parsed);
-
-    const currentIndex = Math.max(0, Math.min(parseInt(unitSelect.value, 10) || 0, parsed.units.length - 1));
-    refreshUnitSelect(parsed, currentIndex);
-    loadUnitIntoForm(currentIndex);
-    refreshFormationSelect(parsed, 0);
-    loadFormationIntoForm(0);
-    refreshNationSelect(parsed, 0);
-    loadNationIntoForm(0);
-    refreshNationOverviewSelect(parsed, 0);
-
-    cardsContainer.innerHTML = "";
-
-    const term = (searchInput.value || "").toLowerCase().trim();
+  function getFilteredUnits(parsed, limit = 50) {
+    const term = (searchInput?.value || "").toLowerCase().trim();
     const catTerm = (filterCategoryInput?.value || "").toLowerCase().trim();
     const internalFilter = (filterInternalSelect?.value || "").toUpperCase();
     const tierFilter = (filterTierSelect?.value || "").trim();
     const sorter = sortUnitsSelect?.value || "name-asc";
-    const unitsLimited = parsed.units
+
+    return parsed.units
       .map((unit, idx) => ({ unit, idx }))
       .filter(({ unit }) => {
         if (term) {
@@ -2671,15 +2268,34 @@
             return (ua.name || "").localeCompare(ub.name || "");
         }
       })
-      .slice(0, 50);
-    if (!unitsLimited.length && parsed.units.length > 0) {
-      // Clear filters automatically if nothing matches.
-      if (searchInput) searchInput.value = "";
-      if (filterCategoryInput) filterCategoryInput.value = "";
-      if (filterInternalSelect) filterInternalSelect.value = "";
-      if (filterTierSelect) filterTierSelect.value = "";
-      renderCards();
-      showMessage("No units matched filters. Cleared filters and showing all.", "error");
+      .slice(0, limit);
+  }
+
+  function renderCards({ rebuild = true } = {}) {
+    clearMessage();
+    const parsed = getActiveData();
+    if (!parsed.units.length) {
+      cardsContainer.innerHTML = "";
+      renderUnitBrowser([]);
+      showMessage("No units found in data.", "error");
+      return;
+    }
+    if (rebuild) {
+      rebuildWeaponLibrary(parsed);
+      const currentIndex = Math.max(0, Math.min(parseInt(unitSelect.value, 10) || 0, parsed.units.length - 1));
+      refreshUnitSelect(parsed, currentIndex);
+      loadUnitIntoForm(currentIndex);
+      refreshFormationSelect(parsed, 0);
+      refreshNationSelect(parsed, 0);
+      refreshNationOverviewSelect(parsed, 0);
+    }
+
+    const unitsLimited = getFilteredUnits(parsed);
+    cardsContainer.innerHTML = "";
+
+    if (!unitsLimited.length) {
+      renderUnitBrowser([]);
+      showMessage("No units match the filters.", "error");
       return;
     }
 
@@ -2693,16 +2309,13 @@
     });
 
     renderUnitBrowser(unitsLimited);
+    showMessage(`Rendered ${unitsLimited.length} unit statcard(s).`, "success");
 
-    if (!unitsLimited.length) {
-      showMessage("No units match the search.", "error");
-    } else {
-      showMessage(`Rendered ${unitsLimited.length} unit statcard(s).`, "success");
+    // Keep formation/nation summaries in sync with unit changes when requested.
+    if (rebuild) {
+      renderFormations();
+      renderNations();
     }
-
-    // Keep formation/nation summaries in sync with unit changes.
-    renderFormations();
-    renderNations();
     if (currentMode === "stats") renderStats();
   }
 
@@ -3562,11 +3175,10 @@
   renderButton.addEventListener("click", renderCards);
   loadSampleButton.addEventListener("click", loadSample);
   unitSelect.addEventListener("change", () => loadUnitIntoForm(parseInt(unitSelect.value, 10) || 0));
-  addGunButton.addEventListener("click", () => addGunEditRow());
+  (addGunButton || document.getElementById("addGun"))?.addEventListener("click", () => addGunEditRow());
   addEquipmentButton.addEventListener("click", () => addEquipmentRow());
   saveUnitButton.addEventListener("click", () => {
     saveCurrentUnit();
-    debouncedHostSave();
   });
   addUnitButton.addEventListener("click", () => {
     addNewUnit();
@@ -3574,7 +3186,6 @@
   });
   deleteUnitButton.addEventListener("click", () => {
     deleteCurrentUnit();
-    debouncedHostSave();
   });
   cardsContainer.addEventListener("click", (event) => {
     const gunToggle = event.target.closest("[data-action='toggle-gun']");
@@ -3631,12 +3242,21 @@
   weaponEditorBtn?.addEventListener("click", () => {
     if (!saveCurrentUnit()) return;
     toggleMode("weapon-edit");
-    loadWeaponIntoForm(parseInt(weaponSelect.value, 10) || 0);
+    const target = weaponSelect?.value ?? 0;
+    RTS.weaponEditor?.loadWeaponIntoForm?.(target);
   });
   ammoEditorBtn?.addEventListener("click", () => {
     if (!saveCurrentUnit()) return;
     toggleMode("ammo-edit");
-    loadAmmoIntoForm(parseInt(ammoSelect.value, 10) || 0);
+    const target = ammoSelect?.value ?? 0;
+    RTS.weaponEditor?.loadAmmoIntoForm?.(target);
+  });
+  document.addEventListener("click", (event) => {
+    const addGunAction = event.target.closest("#addGun");
+    if (addGunAction) {
+      event.preventDefault();
+      addGunEditRow();
+    }
   });
   wireDropZone(unitImageDrop, unitImage, "units");
   wireDropZone(formationImageDrop, formationImage, "formations");
@@ -3683,307 +3303,69 @@
   addCategoryTagBtn?.addEventListener("click", () => processTagInput(tagCategoryName, tagCategoryColor, weaponTags.categories));
   addCaliberTagBtn?.addEventListener("click", () => processTagInput(tagCaliberName, tagCaliberColor, weaponTags.calibers));
 
-  saveAmmoButton?.addEventListener("click", saveAmmoTemplate);
-  addAmmoButton?.addEventListener("click", addAmmoTemplate);
-  duplicateAmmoButton?.addEventListener("click", duplicateAmmoTemplate);
-  deleteAmmoButton?.addEventListener("click", deleteAmmoTemplate);
   ammoSelect?.addEventListener("change", () => loadAmmoIntoForm(ammoSelect.value));
 
-  duplicateWeaponButton?.addEventListener("click", duplicateWeaponTemplate);
 
-  // Live Preview Listeners
-  [weaponName, weaponRange, weaponCategory, weaponMuzzle, weaponDispersion, weaponBarrel, weaponReload, weaponFireModes].forEach(input => {
-    input?.addEventListener("input", renderWeaponPreview);
+  addFormationButton?.addEventListener("click", () => {
+    addNewFormation();
+    debouncedHostSave();
+  });
+  saveFormationButton?.addEventListener("click", () => {
+    saveCurrentFormation();
+  });
+  deleteFormationButton?.addEventListener("click", () => {
+    deleteFormation();
+    debouncedHostSave();
+  });
+  formationSelect?.addEventListener("change", () =>
+    loadFormationIntoForm(parseInt(formationSelect.value, 10) || 0)
+  );
+  addCategoryButton?.addEventListener("click", () => {
+    if (!categoryList) return;
+    const parsed = parseData(false) || {};
+    const units = Array.isArray(parsed.units) ? parsed.units : [];
+    categoryList.appendChild(buildCategoryRow({}, units));
+    applyCategoryFilter();
   });
 
-  [ammoNameInput, ammoCaliberInput, ammoPenetrationInput, ammoHEInput, ammoDispersionInput, ammoRangeInput].forEach(input => {
-    input?.addEventListener("input", renderAmmoPreview);
+  addNationButton?.addEventListener("click", () => {
+    addNewNation();
+    debouncedHostSave();
   });
-
-  // Initial calls
-  refreshAmmoCaliberList();
-
-  unitBrowser.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-target]");
-    if (button) highlightCard(button.dataset.target);
+  saveNationButton?.addEventListener("click", () => {
+    saveCurrentNation();
   });
-  saveWeaponButton?.addEventListener("click", saveWeaponTemplate);
-  addWeaponButton?.addEventListener("click", addWeaponTemplate);
-  deleteWeaponButton?.addEventListener("click", deleteWeaponTemplate);
-  weaponSelect?.addEventListener("change", () => loadWeaponIntoForm(weaponSelect.value));
-
-  const refreshAmmoCaliberList = () => {
-    if (!ammoCaliberList) return;
-    ammoCaliberList.innerHTML = "";
-    const calibers = new Set(Object.keys(ammoLibrary));
-    calibers.forEach((cal) => {
-      const opt = document.createElement("option");
-      opt.value = cal;
-      ammoCaliberList.appendChild(opt);
-    });
-  };
-
-  function saveWeaponTemplate() {
-    const name = weaponName.value.trim();
-    if (!name) {
-      showMessage("Weapon name is required.", "error");
-      return;
-    }
-    const range = parseFloat(weaponRange.value);
-    if (isNaN(range) || range <= 0) {
-      showMessage("Range must be a positive number.", "error");
-      return;
-    }
-
-    const entry = {
-      name,
-      caliber: weaponCaliber.value.trim(),
-      range,
-      category: weaponCategory.value.trim(),
-      muzzleVelocity: parseFloat(weaponMuzzle.value) || 0,
-      dispersion: parseFloat(weaponDispersion.value) || 0,
-      barrelLength: parseFloat(weaponBarrel.value) || 0,
-      reloadSpeed: parseFloat(weaponReload.value) || 0,
-      fireModes: weaponFireModes.value
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((n) => ({ name: n })),
-    };
-    weaponTemplates[name] = entry;
-    refreshWeaponSelect(name);
-    rebuildWeaponLibrary(parseData(false));
-    saveToStorage();
-    showMessage("Weapon saved.", "success");
-  }
-
-  function deleteWeaponTemplate() {
-    const name = weaponSelect.value;
-    if (!name || !weaponTemplates[name]) return;
-    if (!confirm(`Are you sure you want to delete weapon "${name}"?`)) return;
-    delete weaponTemplates[name];
-    refreshWeaponSelect();
-    rebuildWeaponLibrary(parseData(false));
-    saveToStorage();
-    showMessage("Weapon deleted.", "success");
-  }
-
-  function duplicateWeaponTemplate() {
-    const name = weaponSelect.value;
-    if (!name || !weaponTemplates[name]) return;
-    const original = weaponTemplates[name];
-    const newName = `${original.name} (Copy)`;
-    weaponName.value = newName;
-    weaponCaliber.value = original.caliber || "";
-    weaponRange.value = original.range || "";
-    weaponCategory.value = original.category || "";
-    weaponMuzzle.value = original.muzzleVelocity || "";
-    weaponDispersion.value = original.dispersion || "";
-    weaponBarrel.value = original.barrelLength || "";
-    weaponReload.value = original.reloadSpeed || "";
-    weaponFireModes.value = (original.fireModes || []).map((f) => f.name).join(", ");
-    showMessage("Weapon duplicated. Adjust name and save.", "success");
-  }
-
-  function renderWeaponPreview() {
-    if (!weaponPreview) return;
-    weaponPreview.innerHTML = "";
-    const dummyUnit = {
-      guns: [{
-        name: weaponName.value || "Weapon Name",
-        count: 1,
-        ammoPerSoldier: 100,
-        totalAmmo: 100,
-        range: parseFloat(weaponRange.value) || 0,
-        category: weaponCategory.value || "Category",
-        muzzleVelocity: parseFloat(weaponMuzzle.value) || 0,
-        dispersion: parseFloat(weaponDispersion.value) || 0,
-        barrelLength: parseFloat(weaponBarrel.value) || 0,
-        reloadSpeed: parseFloat(weaponReload.value) || 0,
-        fireModes: weaponFireModes.value.split(",").map(s => ({ name: s.trim() })).filter(f => f.name),
-        trajectories: []
-      }]
-    };
-    // Reuse buildCard logic partially or create a simplified view
-    const row = document.createElement("div");
-    row.className = "gun-row";
-    const title = document.createElement("div");
-    title.className = "gun-title";
-    title.innerHTML = `<strong>1x ${dummyUnit.guns[0].name}</strong> <span class="muted">(${dummyUnit.guns[0].category})</span>`;
-
-    const meta = document.createElement("div");
-    meta.className = "gun-meta-wrap";
-    [
-      ["Range", formatWithUnit(dummyUnit.guns[0].range, "m")],
-      ["Muzzle", formatWithUnit(dummyUnit.guns[0].muzzleVelocity, "m/s")],
-      ["Dispersion", formatWithUnit(dummyUnit.guns[0].dispersion, "cm")],
-      ["Reload", formatWithUnit(dummyUnit.guns[0].reloadSpeed, "s")]
-    ].forEach(([l, v]) => {
-      const d = document.createElement("div");
-      d.className = "gun-meta";
-      d.innerHTML = `<span class="label">${l}</span> ${v}`;
-      meta.appendChild(d);
-    });
-    row.append(title, meta);
-    weaponPreview.appendChild(row);
-  }
-
-  function saveAmmoTemplate() {
-    const name = ammoNameInput.value.trim();
-    const cal = ammoCaliberInput.value.trim();
-    if (!cal) { // Removed strict regex for flexibility, but kept required check
-      showMessage("Ammo caliber is required.", "error");
-      return;
-    }
-    if (!name) {
-      showMessage("Ammo name is required.", "error");
-      return;
-    }
-    ammoLibrary[cal] = ammoLibrary[cal] || [];
-    const existing = ammoLibrary[cal].find((a) => a.name === name);
-    const entry = {
-      name,
-      caliber: cal,
-      caliberDesc: ammoCaliberDescInput.value || "",
-      penetration: parseFloat(ammoPenetrationInput.value) || 0,
-      heDeadliness: parseFloat(ammoHEInput.value) || 0,
-      dispersion: parseFloat(ammoDispersionInput.value) || 0,
-      rangeMod: parseFloat(ammoRangeInput.value) || 0,
-      grain: parseFloat(ammoGrainInput?.value) || 0,
-      notes: ammoNotesInput.value || "",
-    };
-    if (existing) {
-      Object.assign(existing, entry);
+  deleteNationButton?.addEventListener("click", () => {
+    deleteNation();
+    debouncedHostSave();
+  });
+  nationSelect?.addEventListener("change", () =>
+    loadNationIntoForm(parseInt(nationSelect.value, 10) || 0)
+  );
+  exportNationButton?.addEventListener("click", exportSelectedNation);
+  importNationButton?.addEventListener("click", () => importNationFile?.click());
+  settingsBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (settingsPanel?.classList.contains("hidden-section")) {
+      showSettingsPanel();
     } else {
-      ammoLibrary[cal].push(entry);
+      settingsPanel?.classList.add("hidden-section");
     }
-    refreshAmmoSelect(`${cal}::${name}`);
-    refreshAmmoCaliberList(); // Update datalist
-    rebuildWeaponLibrary(parseData(false));
-    saveToStorage();
-    showMessage("Ammo saved.", "success");
-  }
-
-  function deleteAmmoTemplate() {
-    const key = ammoSelect.value;
-    if (!key) return;
-    const [cal, name] = key.split("::");
-    if (!ammoLibrary[cal]) return;
-    if (!confirm(`Are you sure you want to delete ammo "${name}" (${cal})?`)) return;
-
-    const idx = ammoLibrary[cal].findIndex((a) => a.name === name || (a.name === undefined && name === `Ammo ${idx + 1}`));
-    if (idx !== -1) {
-      ammoLibrary[cal].splice(idx, 1);
-      if (ammoLibrary[cal].length === 0) delete ammoLibrary[cal];
-      refreshAmmoSelect();
-      refreshAmmoCaliberList();
-      rebuildWeaponLibrary(parseData(false));
-      saveToStorage();
-      showMessage("Ammo deleted.", "success");
+  });
+  document.addEventListener("click", (event) => {
+    if (!settingsPanel || settingsPanel.classList.contains("hidden-section")) return;
+    if (!settingsPanel.contains(event.target) && event.target !== settingsBtn) {
+      settingsPanel.classList.add("hidden-section");
     }
-  }
-
-  function duplicateAmmoTemplate() {
-    const key = ammoSelect.value;
-    if (!key) return;
-    const [cal, name] = key.split("::");
-    const original = (ammoLibrary[cal] || []).find(a => a.name === name);
-    if (!original) return;
-
-    ammoNameInput.value = `${original.name} (Copy)`;
-    ammoCaliberInput.value = original.caliber || "";
-    ammoCaliberDescInput.value = original.caliberDesc || "";
-    ammoPenetrationInput.value = original.penetration || "";
-    ammoHEInput.value = original.heDeadliness || "";
-    ammoDispersionInput.value = original.dispersion || "";
-    ammoRangeInput.value = original.rangeMod || "";
-    if (ammoGrainInput) ammoGrainInput.value = original.grain || "";
-    ammoNotesInput.value = original.notes || "";
-    showMessage("Ammo duplicated. Adjust name and save.", "success");
-  }
-
-  function renderAmmoPreview() {
-    if (!ammoPreview) return;
-    ammoPreview.innerHTML = "";
-    // Simple preview
-    const row = document.createElement("div");
-    row.className = "gun-row"; // Reuse style
-    const title = document.createElement("div");
-    title.className = "gun-title";
-    title.innerHTML = `<strong>${ammoNameInput.value || "Ammo Name"}</strong> <span class="muted">(${ammoCaliberInput.value || "Caliber"})</span>`;
-
-    const meta = document.createElement("div");
-    meta.className = "gun-meta-wrap";
-    [
-      ["Pen", `${ammoPenetrationInput.value || 0} mm`],
-      ["HE", ammoHEInput.value || 0],
-      ["Disp", `${ammoDispersionInput.value || 0}%`],
-      ["Range Mod", `${ammoRangeInput.value || 0}m`]
-    ].forEach(([l, v]) => {
-      const d = document.createElement("div");
-      d.className = "gun-meta";
-      d.innerHTML = `<span class="label">${l}</span> ${v}`;
-      meta.appendChild(d);
-    });
-    row.append(title, meta);
-    ammoPreview.appendChild(row);
-  }
-
-  function exportLibrary(data, filename) {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  function importLibrary(fileInput, mergeCallback) {
-    const file = fileInput.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target.result);
-        mergeCallback(data);
-        showMessage("Library imported successfully.", "success");
-        saveToStorage();
-      } catch (err) {
-        console.error(err);
-        showMessage("Failed to import library.", "error");
-      }
-      fileInput.value = ""; // Reset
-    };
-    reader.readAsText(file);
-  }
-
-  exportWeaponLibBtn?.addEventListener("click", () => exportLibrary(weaponTemplates, "weapon_library.json"));
-  importWeaponLibBtn?.addEventListener("click", () => importWeaponFile.click());
-  importWeaponFile?.addEventListener("change", () => importLibrary(importWeaponFile, (data) => {
-    Object.assign(weaponTemplates, data);
-    refreshWeaponSelect();
-    rebuildWeaponLibrary(parseData(false));
-  }));
-
-  exportAmmoLibBtn?.addEventListener("click", () => exportLibrary(ammoLibrary, "ammo_library.json"));
-  importAmmoLibBtn?.addEventListener("click", () => importAmmoFile.click());
-  importAmmoFile?.addEventListener("change", () => importLibrary(importAmmoFile, (data) => {
-    // Deep merge for ammo library (key = caliber)
-    Object.keys(data).forEach(cal => {
-      if (ammoLibrary[cal]) {
-        ammoLibrary[cal] = [...ammoLibrary[cal], ...data[cal]];
-      } else {
-        ammoLibrary[cal] = data[cal];
-      }
-    });
-    refreshAmmoSelect();
-    refreshAmmoCaliberList();
-    rebuildWeaponLibrary(parseData(false));
-  }));
-
-  weaponSearch?.addEventListener("input", () => refreshWeaponSelect());
-  ammoSearch?.addEventListener("input", () => refreshAmmoSelect());
+  });
+  applyThemeBtn?.addEventListener("click", () => applyTheme(themeSelect?.value || "default"));
+  themeSelect?.addEventListener("change", () => applyTheme(themeSelect?.value || "default"));
+  exportPngButton?.addEventListener("click", exportCardsAsPng);
+  saveDataButton?.addEventListener("click", saveToStorage);
+  loadSavedButton?.addEventListener("click", () => loadDataFile?.click());
+  loadDataFile?.addEventListener("change", handleDataFile);
+  refreshAppButton?.addEventListener("click", () => window.location.reload());
+  printButton?.addEventListener("click", () => window.print());
 
   // Final safety: if units are still empty, seed samples so editors/views show content.
   setTimeout(() => {
@@ -4034,32 +3416,6 @@
       console.warn("Download logs failed", e);
     }
   });
-  function toNumber(val) {
-    if (typeof val === "number") return val;
-    if (typeof val === "string") {
-      const m = val.match(/-?\d+(\.\d+)?/);
-      return m ? parseFloat(m[0]) : 0;
-    }
-    return 0;
-  }
-
-  function armorScore(armor) {
-    const text = typeof armor === "string" ? armor.toLowerCase() : "";
-    if (!text && typeof armor !== "number") return 5;
-    if (text.includes("era") || text.includes("composite") || text.includes("heavy")) return 40;
-    if (text.includes("kevlar") || text.includes("lvl") || text.includes("iii")) return 25;
-    if (text.includes("light")) return 15;
-    return Math.max(5, Math.min(35, toNumber(armor) * 2));
-  }
-
-  function clampScore(num) {
-    return Math.max(0, Math.min(100, Math.round(num)));
-  }
-
-  function deepClone(obj) {
-    return JSON.parse(JSON.stringify(obj));
-  }
-
   function applyTheme(name) {
     const t = themes[name] || themes.default;
     Object.entries({
@@ -4222,205 +3578,11 @@
     settingsPanel.style.top = `${top}px`;
   }
 
-  function getAmmoDatalist(caliber) {
-    try {
-      if (!caliber) return null;
-      if (!ammoDatalistContainer) {
-        const div = document.createElement("div");
-        div.id = "ammo-datalists";
-        document.body.appendChild(div);
-      }
-      const safeCal = `${caliber}`;
-      const id = `ammo-dl-${safeCal.replace(/[^a-z0-9]/gi, "")}`;
-      let list = document.getElementById(id);
-      if (!list) {
-        list = document.createElement("datalist");
-        list.id = id;
-        ammoDatalistContainer.appendChild(list);
-      }
-      return list;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  function formatWithUnit(val, unit) {
-    if (val === "" || val === undefined || val === null) return "N/A";
-    const num = toNumber(val);
-    if (Number.isNaN(num)) return valueOrNA(val);
-    return `${num} ${unit}`;
-  }
-
-  function formatPercent(val) {
-    if (val === "" || val === undefined || val === null) return "N/A";
-    const num = toNumber(val);
-    if (Number.isNaN(num)) return valueOrNA(val);
-    return `${num}%`;
-  }
-
-  function formatSpeed(val) {
-    if (val === "" || val === undefined || val === null) return "N/A";
-    const mps = toNumber(val);
-    if (Number.isNaN(mps)) return valueOrNA(val);
-    const kph = (mps * 3.6).toFixed(1);
-    return `${mps} m/s (${kph} km/h)`;
-  }
-
-  function formatPoints(val) {
-    if (val === "" || val === undefined || val === null) return "N/A";
-    const num = toNumber(val);
-    if (Number.isNaN(num)) return valueOrNA(val);
-    return `${num} pts`;
-  }
-
-  function scoreUnitDetailed(unit) {
-    if (!unit) return null;
-    const guns = Array.isArray(unit.guns) ? unit.guns : [];
-    const caps = unit.capabilities || {};
-    const stats = unit.stats || {};
-    const gren = unit.grenades || {};
-
-    const ammoListFlat = guns.flatMap((g) => (Array.isArray(g.ammoTypes) ? g.ammoTypes : []));
-    const maxAmmoPen = Math.max(0, ...ammoListFlat.map((a) => toNumber(a.penetration) || 0));
-    const maxAmmoHE = Math.max(0, ...ammoListFlat.map((a) => toNumber(a.heDeadliness) || 0));
-    const avgRangeMod = ammoListFlat.length
-      ? ammoListFlat.reduce((sum, a) => sum + (toNumber(a.rangeMod) || 0), 0) / ammoListFlat.length
-      : 0;
-
-    const lethality = clampScore(
-      guns.reduce(
-        (sum, g) =>
-          sum +
-          toNumber(g.totalAmmo || g.ammoPerSoldier) * 0.4 +
-          Math.max(1, toNumber(g.count) || 1) * 4 +
-          (toNumber(g.muzzleVelocity) || 0) * 0.05,
-        0
-      ) +
-      toNumber(gren.total) * 2 +
-      maxAmmoPen * 0.6 +
-      maxAmmoHE * 1.5
-    );
-    const survivability = clampScore(armorScore(stats.armor) + toNumber(stats.health) * 0.5);
-    const sustainability = clampScore(80 - toNumber(stats.weight) * 5 - toNumber(unit.price) * 0.001);
-    const mobility = clampScore(toNumber(stats.speed) * 6 + toNumber(caps?.sprint?.speed) * 2);
-    const versatility = clampScore(
-      guns.length * 6 +
-      new Set(guns.map((g) => (g.category || "").toLowerCase())).size * 4 +
-      ammoListFlat.length * 2 +
-      avgRangeMod * 0.3
-    );
-    const stealth = clampScore(toNumber(stats.stealth));
-    const speed = clampScore(toNumber(stats.speed) * 10);
-    const morale = clampScore(50 + toNumber(stats.health) * 0.2 + toNumber(unit.tier) * 4);
-    const training = clampScore(toNumber(unit.tier) * 10);
-    const antiInfantry = clampScore(
-      guns.reduce((sum, g) => sum + (toNumber(g.heDeadliness) || maxAmmoHE ? 10 : 5), 0) + toNumber(gren.frag) * 6
-    );
-    const antiTank = clampScore(
-      maxAmmoPen * 0.5 +
-      guns.reduce((sum, g) => sum + (g.category || "").toLowerCase().includes("launcher") ? 15 : 0, 0)
-    );
-    const antiAir = clampScore(
-      guns.reduce((sum, g) => sum + (g.category || "").toLowerCase().includes("aa") ? 20 : 0, 0)
-    );
-
-    return {
-      metrics: {
-        lethality,
-        survivability,
-        sustainability,
-        mobility,
-        versatility,
-        stealth,
-        speed,
-        morale,
-        training,
-        antiInfantry,
-        antiTank,
-        antiAir,
-      },
-    };
-  }
-
-  function scoreFormationDetailed(formation, units) {
-    if (!formation) return null;
-    const unitIds = [];
-    (formation.categories || []).forEach((cat) => (cat.units || []).forEach((uid) => unitIds.push(uid)));
-    if (!unitIds.length) return null;
-    const metricsArray = unitIds
-      .map((uid) => scoreUnitDetailed(units[uid]))
-      .filter(Boolean)
-      .map((s) => s.metrics);
-    if (!metricsArray.length) return null;
-    const avg = (field) => metricsArray.reduce((sum, m) => sum + (m[field] || 0), 0) / metricsArray.length;
-
-    const recon = clampScore(avg("stealth") + avg("speed") * 0.5);
-    const support = clampScore(avg("sustainability") + avg("versatility") * 0.5);
-    const armor = clampScore(avg("survivability"));
-    const infantry = clampScore(
-      unitIds.reduce((sum, uid) => {
-        const u = units[uid];
-        return sum + ((u?.internalCategory || "").toUpperCase() === "INF" ? 8 : 0);
-      }, 0)
-    );
-    const logistics = clampScore(
-      unitIds.reduce((sum, uid) => {
-        const u = units[uid];
-        return sum + ((u?.internalCategory || "").toUpperCase() === "LOG" ? 10 : 0);
-      }, 0) + avg("sustainability") * 0.5
-    );
-    const air = clampScore(
-      unitIds.reduce((sum, uid) => {
-        const u = units[uid];
-        return sum + ((u?.internalCategory || "").toUpperCase() === "AIR" ? 10 : 0);
-      }, 0)
-    );
-    const sustaiment = clampScore(avg("sustainability"));
-    const speed = clampScore(avg("speed"));
-    const supplyEfficiency = clampScore(90 - avg("mobility") * 0.3 + avg("sustainability") * 0.2);
-    const aoSize = clampScore(unitIds.length * 5);
-    const versatility = clampScore(avg("versatility"));
-
-    return {
-      metrics: {
-        recon,
-        support,
-        armor,
-        infantry,
-        logistics,
-        air,
-        sustaiment,
-        speed,
-        supplyEfficiency,
-        aoSize,
-        versatility,
-      },
-    };
-  }
-
-  function scoreNationDetailed(nation, formations, units) {
-    if (!nation) return null;
-    const formationIds = nation.formations || [];
-    if (!formationIds.length) return null;
-    const metricsArray = formationIds
-      .map((fid) => scoreFormationDetailed(formations[fid], units))
-      .filter(Boolean)
-      .map((s) => s.metrics);
-    if (!metricsArray.length) return null;
-    const avg = (field) => metricsArray.reduce((sum, m) => sum + (m[field] || 0), 0) / metricsArray.length;
-
-    const strategicMomentum = clampScore(avg("versatility") + avg("speed") * 0.5 + avg("armor") * 0.3);
-    const supplyEfficiency = clampScore(avg("supplyEfficiency") + avg("logistics") * 0.5);
-    const aoSize = clampScore(metricsArray.length * 10);
-    const maneuverSpeed = clampScore(avg("speed"));
-
-    return {
-      metrics: {
-        strategicMomentum,
-        supplyEfficiency,
-        aoSize,
-        maneuverSpeed,
-      },
-    };
-  }
+  RTS.weaponEditor?.init({
+    showMessage,
+    parseData,
+    debouncedHostSave,
+    saveToStorage,
+  });
 })();
+
