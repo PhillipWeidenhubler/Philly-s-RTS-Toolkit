@@ -118,6 +118,8 @@ CREATE TABLE IF NOT EXISTS unit_guns (
   magazine_size INTEGER,
   reload_speed REAL,
   target_acquisition REAL,
+  trajectories TEXT,
+  traits TEXT,
   FOREIGN KEY (unit_id) REFERENCES units(id) ON DELETE CASCADE
 );
 

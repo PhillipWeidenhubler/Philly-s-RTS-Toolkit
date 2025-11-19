@@ -43,6 +43,7 @@ export interface Gun {
   muzzleVelocity?: number | string;
   heDeadliness?: number | string;
   trajectories?: string[];
+  traits?: string[];
   ammoTypes?: GunAmmo[];
   fireModes?: GunFireMode[];
 }

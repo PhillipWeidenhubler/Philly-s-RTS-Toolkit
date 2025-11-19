@@ -374,8 +374,8 @@ VALUES ($unitId, $smoke, $flash, $thermite, $frag, $total);";
                     var gunCmd = connection.CreateCommand();
                     gunCmd.Transaction = transaction;
                     gunCmd.CommandText = @"
-INSERT INTO unit_guns (unit_id, name, category, caliber, barrel_length, range, dispersion, count, ammo_per_soldier, total_ammo, magazine_size, reload_speed, target_acquisition)
-VALUES ($unitId, $name, $category, $caliber, $barrel, $range, $dispersion, $count, $ammoPer, $totalAmmo, $magazine, $reload, $acquisition);";
+INSERT INTO unit_guns (unit_id, name, category, caliber, barrel_length, range, dispersion, count, ammo_per_soldier, total_ammo, magazine_size, reload_speed, target_acquisition, trajectories, traits)
+VALUES ($unitId, $name, $category, $caliber, $barrel, $range, $dispersion, $count, $ammoPer, $totalAmmo, $magazine, $reload, $acquisition, $trajectories, $traits);";
                     gunCmd.Parameters.AddWithValue("$unitId", unitId);
                     gunCmd.Parameters.AddWithValue("$name", gun.GetPropertyOrDefault("name", string.Empty));
                     gunCmd.Parameters.AddWithValue("$category", gun.GetPropertyOrDefault("category", string.Empty) ?? (object)DBNull.Value);
@@ -389,6 +389,8 @@ VALUES ($unitId, $name, $category, $caliber, $barrel, $range, $dispersion, $coun
                     gunCmd.Parameters.AddWithValue("$magazine", gun.GetPropertyOrDefault("magazineSize", (int?)null) ?? (object)DBNull.Value);
                     gunCmd.Parameters.AddWithValue("$reload", gun.GetPropertyOrDefault("reloadSpeed", (double?)null) ?? (object)DBNull.Value);
                     gunCmd.Parameters.AddWithValue("$acquisition", gun.GetPropertyOrDefault("targetAcquisition", (double?)null) ?? (object)DBNull.Value);
+                    gunCmd.Parameters.AddWithValue("$trajectories", gun.TryGetProperty("trajectories", out var trajElement) && trajElement.ValueKind == JsonValueKind.Array ? trajElement.GetRawText() : (object)DBNull.Value);
+                    gunCmd.Parameters.AddWithValue("$traits", gun.TryGetProperty("traits", out var traitElement) && traitElement.ValueKind == JsonValueKind.Array ? traitElement.GetRawText() : (object)DBNull.Value);
                     await gunCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
                     var gunRowId = await GetLastInsertRowIdAsync(connection).ConfigureAwait(false);
 
@@ -726,6 +728,14 @@ DELETE FROM unit_equipment WHERE unit_id = $unitId;";
                     ["reloadSpeed"] = reader["reload_speed"] == DBNull.Value ? null : JsonValue.Create(reader["reload_speed"]),
                     ["targetAcquisition"] = reader["target_acquisition"] == DBNull.Value ? null : JsonValue.Create(reader["target_acquisition"])
                 };
+                if (reader["trajectories"] != DBNull.Value)
+                {
+                    gun["trajectories"] = JsonNode.Parse(reader["trajectories"]?.ToString() ?? "[]");
+                }
+                if (reader["traits"] != DBNull.Value)
+                {
+                    gun["traits"] = JsonNode.Parse(reader["traits"]?.ToString() ?? "[]");
+                }
 
                 var ammo = await LoadGunAmmoAsync(connection, gunId).ConfigureAwait(false);
                 if (ammo.Count > 0) gun["ammoTypes"] = ammo;

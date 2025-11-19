@@ -165,13 +165,13 @@ export class UnitEditor {
             <section class="panel">
               <div class="panel-title">Core stats</div>
               <div class="core-stats-grid">
-                <div class="field"><label>Armor</label><input name="stats.armor" type="number" step="0.1" /></div>
-                <div class="field"><label>Health</label><input name="stats.health" type="number" step="0.1" /></div>
-                <div class="field"><label>Squad size</label><input name="stats.squadSize" type="number" step="1" min="0" /></div>
-                <div class="field"><label>Visual range</label><input name="stats.visualRange" type="number" step="1" min="0" /></div>
-                <div class="field"><label>Stealth</label><input name="stats.stealth" type="number" step="1" min="0" /></div>
+                <div class="field"><label>Armor (mm)</label><input name="stats.armor" type="number" step="0.1" /></div>
+                <div class="field"><label>Health (HP)</label><input name="stats.health" type="number" step="0.1" /></div>
+                <div class="field"><label>Squad size (#)</label><input name="stats.squadSize" type="number" step="1" min="0" /></div>
+                <div class="field"><label>Visual range (m)</label><input name="stats.visualRange" type="number" step="1" min="0" /></div>
+                <div class="field"><label>Stealth (%)</label><input name="stats.stealth" type="number" step="1" min="0" /></div>
                 <div class="field"><label>Speed (m/s)</label><input name="stats.speed" type="number" step="0.1" /></div>
-                <div class="field"><label>Weight</label><input name="stats.weight" type="number" step="0.1" /></div>
+                <div class="field"><label>Weight (kg)</label><input name="stats.weight" type="number" step="0.1" /></div>
               </div>
             </section>
             <section class="panel grid-4">
@@ -569,8 +569,8 @@ export class UnitEditor {
         <label>Category<input data-field="category" value="${gun?.category ?? ""}" /></label>
         <label>Caliber<input data-field="caliber" value="${gun?.caliber ?? ""}" /></label>
         <label>Barrel length<input data-field="barrelLength" type="number" step="0.1" value="${gun?.barrelLength ?? ""}" /></label>
-        <label>Range<input data-field="range" type="number" step="1" value="${gun?.range ?? ""}" /></label>
-        <label>Dispersion<input data-field="dispersion" type="number" step="0.01" value="${gun?.dispersion ?? ""}" /></label>
+          <label>Range (m)<input data-field="range" type="number" step="1" value="${gun?.range ?? ""}" /></label>
+          <label>Dispersion (%)<input data-field="dispersion" type="number" step="0.01" value="${gun?.dispersion ?? ""}" /></label>
         <label>Count<input data-field="count" type="number" step="1" min="0" value="${gun?.count ?? ""}" /></label>
         <label>Ammo / soldier<input data-field="ammoPerSoldier" type="number" step="1" min="0" value="${gun?.ammoPerSoldier ?? ""}" /></label>
         <label>Total ammo<input data-field="totalAmmo" type="number" step="1" min="0" value="${gun?.totalAmmo ?? ""}" /></label>
@@ -671,11 +671,11 @@ export class UnitEditor {
           <label>Caliber notes<input data-ammo-field="caliberDesc" value="${ammo?.caliberDesc ?? ""}" /></label>
           <label>Penetration (mm)<input type="number" step="0.1" data-ammo-field="penetration" value="${ammo?.penetration ?? ""}" /></label>
           <label>HE value<input type="number" step="0.1" data-ammo-field="heDeadliness" value="${ammo?.heDeadliness ?? ""}" /></label>
-          <label>Dispersion %<input type="number" step="0.1" data-ammo-field="dispersion" value="${ammo?.dispersion ?? ""}" /></label>
-          <label>Range %<input type="number" step="0.1" data-ammo-field="rangeMod" value="${ammo?.rangeMod ?? ""}" /></label>
-          <label>Ammo/Soldier<input type="number" step="1" min="0" data-ammo-field="ammoPerSoldier" value="${ammo?.ammoPerSoldier ?? ""}" /></label>
-          <label>Grain<input type="number" step="0.1" data-ammo-field="grain" value="${ammo?.grain ?? ""}" /></label>
-          <label>FPS<input type="number" step="1" data-ammo-field="fps" value="${ammo?.fps ?? ""}" /></label>
+          <label>Dispersion (%)<input type="number" step="0.1" data-ammo-field="dispersion" value="${ammo?.dispersion ?? ""}" /></label>
+          <label>Range delta (%)<input type="number" step="0.1" data-ammo-field="rangeMod" value="${ammo?.rangeMod ?? ""}" /></label>
+          <label>Ammo/Soldier (#)<input type="number" step="1" min="0" data-ammo-field="ammoPerSoldier" value="${ammo?.ammoPerSoldier ?? ""}" /></label>
+          <label>Grain (gr)<input type="number" step="0.1" data-ammo-field="grain" value="${ammo?.grain ?? ""}" /></label>
+          <label>Muzzle velocity (fps)<input type="number" step="1" data-ammo-field="fps" value="${ammo?.fps ?? ""}" /></label>
           <label>Notes<input data-ammo-field="notes" value="${ammo?.notes ?? ""}" /></label>
           <label>Airburst
             <select data-ammo-field="airburst">
@@ -684,9 +684,9 @@ export class UnitEditor {
               <option value="no" ${ammo?.airburst === false || ammo?.airburst === "false" ? "selected" : ""}>No</option>
             </select>
           </label>
-          <label>Sub munitions<input type="number" step="1" min="0" data-ammo-field="subCount" value="${ammo?.subCount ?? ""}" /></label>
+          <label>Sub munitions (#)<input type="number" step="1" min="0" data-ammo-field="subCount" value="${ammo?.subCount ?? ""}" /></label>
           <label>Sub damage<input type="number" step="0.1" data-ammo-field="subDamage" value="${ammo?.subDamage ?? ""}" /></label>
-          <label>Sub penetration<input type="number" step="0.1" data-ammo-field="subPenetration" value="${ammo?.subPenetration ?? ""}" /></label>
+          <label>Sub penetration (mm)<input type="number" step="0.1" data-ammo-field="subPenetration" value="${ammo?.subPenetration ?? ""}" /></label>
         </div>
         <div class="row-actions">
           <button type="button" class="ghost small" data-action="remove-ammo">Remove ammo</button>
@@ -719,7 +719,7 @@ export class UnitEditor {
       fireRow.innerHTML = `
         <div class="subgrid">
           <label>Name<input data-fire-field="name" value="${mode?.name ?? ""}" /></label>
-          <label>Rounds / burst<input type="number" step="1" min="0" data-fire-field="rounds" value="${mode?.rounds ?? ""}" /></label>
+          <label>Rounds / burst (#)<input type="number" step="1" min="0" data-fire-field="rounds" value="${mode?.rounds ?? ""}" /></label>
           <label>Burst duration (s)<input type="number" step="0.1" min="0" data-fire-field="burstDuration" value="${mode?.burstDuration ?? ""}" /></label>
           <label>Cooldown (s)<input type="number" step="0.1" min="0" data-fire-field="cooldown" value="${mode?.cooldown ?? ""}" /></label>
           <label>Ammo reference<select data-fire-field="ammoRef"></select></label>
