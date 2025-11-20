@@ -1,12 +1,20 @@
-import type { Formation, FormationCategory } from "../types";
+import type { Formation, FormationCategory, SubFormationAttachment } from "../types";
 import { formationService } from "../services/formationService";
 import { unitService } from "../services/unitService";
 
 const createFormation = (): Formation => ({
   name: "New Formation",
+  role: "",
+  hqLocation: "",
+  commander: "",
+  readiness: "",
+  strengthSummary: "",
+  supportAssets: "",
+  communications: "",
   description: "",
   image: "",
   categories: [],
+  subFormationLinks: [],
 });
 
 export class FormationsPanel {
@@ -16,9 +24,10 @@ export class FormationsPanel {
   private statusEl!: HTMLElement;
   private categoryListEl!: HTMLElement;
   private unitsCountEl!: HTMLElement;
+  private subFormationListEl!: HTMLElement;
+  private formationCountEl?: HTMLElement;
   private formations: Formation[] = [];
   private unitOptions: { id: number; label: string }[] = [];
-  private subSelectEl!: HTMLSelectElement;
   private formationOptions: { id: number; name: string }[] = [];
   private selectedIndex = 0;
 
@@ -31,11 +40,10 @@ export class FormationsPanel {
     this.cacheElements();
     this.bindEvents();
     formationService.subscribe((formations) => {
-      this.formations = formations.length ? formations : [createFormation()];
-      this.formationOptions = formations.map((formation, index) => ({
-        id: formation.id ?? index + 1,
-        name: formation.name || `Formation ${index + 1}`,
-      }));
+      const total = formations.length;
+      this.formations = total ? formations : [createFormation()];
+      this.rebuildFormationOptions();
+      if (this.formationCountEl) this.formationCountEl.textContent = total.toString();
       this.renderList();
       this.syncSelection();
     });
@@ -53,53 +61,98 @@ export class FormationsPanel {
 
   private renderLayout(): void {
     this.root.innerHTML = `
-      <div class="panel formations-panel">
-        <div class="panel-heading">
-          <h3>Formations</h3>
-          <p class="muted">Capture compositions and assign unit categories.</p>
-        </div>
-        <div class="split-layout">
-          <aside class="list-pane">
-            <div class="list-actions">
-              <button type="button" class="ghost" data-action="add-formation">+ Formation</button>
+      <div class="workspace">
+        <aside class="sidebar">
+          <header class="sidebar-header">
+            <div>
+              <p class="eyebrow">Force structure</p>
+              <h1>Formations Browser</h1>
             </div>
-            <div class="list-scroll" data-role="formation-list"></div>
-          </aside>
-          <section class="detail-pane">
-            <form data-role="formation-form" class="grid-3">
+            <button type="button" class="ghost" data-action="add-formation">+ Formation</button>
+          </header>
+          <div class="unit-list" data-role="formation-list"></div>
+          <div class="meta-bar compact">
+            <span>Formations: <strong data-role="formation-count">0</strong></span>
+            <span>Unique units: <strong data-role="formation-units-count">0</strong></span>
+          </div>
+        </aside>
+        <section class="editor">
+          <header class="editor-header">
+            <div>
+              <p class="eyebrow">Formation Editor</p>
+              <h2>Formation Editor</h2>
+              <p class="muted">Capture HQ posture, leadership, and subordinate attachments.</p>
+            </div>
+          </header>
+          <form data-role="formation-form" class="editor-form">
+            <section class="panel grid-3">
               <div class="field">
                 <label>Name</label>
                 <input name="name" autocomplete="off" />
               </div>
               <div class="field">
-                <label>Description</label>
-                <textarea name="description" rows="3"></textarea>
+                <label>Role / mission</label>
+                <input name="role" />
+              </div>
+              <div class="field">
+                <label>Headquarters location</label>
+                <input name="hqLocation" />
+              </div>
+            </section>
+            <section class="panel grid-3">
+              <div class="field">
+                <label>Commander</label>
+                <input name="commander" />
+              </div>
+              <div class="field">
+                <label>Readiness posture</label>
+                <input name="readiness" placeholder="90% / 48h stand-up" />
+              </div>
+              <div class="field">
+                <label>Strength summary</label>
+                <input name="strengthSummary" placeholder="1,240 personnel / 220 vehicles" />
+              </div>
+            </section>
+            <section class="panel grid-3">
+              <div class="field">
+                <label>Support assets</label>
+                <input name="supportAssets" placeholder="Fires, sustainment, aviation" />
+              </div>
+              <div class="field">
+                <label>Communications plan</label>
+                <input name="communications" placeholder="FM 30-41 / SAT 2.5 GHz" />
               </div>
               <div class="field">
                 <label>Image</label>
                 <input name="image" placeholder="formations/path.png" />
               </div>
-              <div class="field full">
-                <div class="panel-heading compact">
-                  <label>Categories</label>
-                  <button type="button" class="ghost" data-action="add-category">Add category</button>
-                </div>
-                <div class="category-editor" data-role="category-editor"></div>
+            </section>
+            <section class="panel">
+              <label>Description</label>
+              <textarea name="description" rows="4" placeholder="Doctrine, employment concept, and sustainment notes."></textarea>
+            </section>
+            <section class="panel">
+              <div class="panel-heading">
+                <h3>Categories</h3>
+                <button type="button" class="ghost" data-action="add-category">Add category</button>
               </div>
-              <div class="field full">
-                <label>Sub formations</label>
-                <select data-role="sub-formations" multiple size="6"></select>
+              <div class="category-editor" data-role="category-editor"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading">
+                <h3>Sub formations</h3>
+                <button type="button" class="ghost" data-action="add-sub-formation">Attach formation</button>
               </div>
-              <div class="field full">
-                <button type="submit" class="primary">Save formation</button>
+              <div class="sub-formation-list" data-role="sub-formation-list">
+                <p class="empty">No attached formations.</p>
               </div>
-            </form>
-            <div class="status-bar compact" data-role="formation-status">Select a formation.</div>
-            <div class="helper-text">
-              Unique units assigned: <strong data-role="formation-units-count">0</strong>
+            </section>
+            <div class="form-actions">
+              <button type="submit" class="primary">Save formation</button>
             </div>
-          </section>
-        </div>
+          </form>
+          <div class="status-bar" data-role="formation-status">Select a formation.</div>
+        </section>
       </div>
     `;
   }
@@ -110,7 +163,8 @@ export class FormationsPanel {
     this.statusEl = this.root.querySelector<HTMLElement>('[data-role="formation-status"]')!;
     this.categoryListEl = this.root.querySelector<HTMLElement>('[data-role="category-editor"]')!;
     this.unitsCountEl = this.root.querySelector<HTMLElement>('[data-role="formation-units-count"]')!;
-    this.subSelectEl = this.root.querySelector<HTMLSelectElement>('[data-role="sub-formations"]')!;
+    this.subFormationListEl = this.root.querySelector<HTMLElement>('[data-role="sub-formation-list"]')!;
+    this.formationCountEl = this.root.querySelector<HTMLElement>('[data-role="formation-count"]');
   }
 
   private bindEvents(): void {
@@ -135,6 +189,15 @@ export class FormationsPanel {
       } else if (action === "remove-category") {
         button.closest(".category-row")?.remove();
         this.updateUnitsCount(this.collectCategoriesFromDom());
+      } else if (action === "add-sub-formation") {
+        this.appendSubFormationRow();
+        this.refreshSubFormationSelects();
+      } else if (action === "remove-sub-formation") {
+        const row = button.closest(".sub-formation-row");
+        row?.remove();
+        if (this.subFormationListEl && !this.subFormationListEl.querySelector(".sub-formation-row")) {
+          this.subFormationListEl.innerHTML = '<p class="empty">No attached formations.</p>';
+        }
       }
     });
   }
@@ -142,6 +205,7 @@ export class FormationsPanel {
   private addFormation(): void {
     this.formations.push(createFormation());
     this.selectedIndex = this.formations.length - 1;
+    this.rebuildFormationOptions();
     this.renderList();
     this.syncSelection();
   }
@@ -156,10 +220,12 @@ export class FormationsPanel {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.dataset.index = index.toString();
-      btn.className = `list-pill${index === this.selectedIndex ? " active" : ""}`;
+      btn.className = `unit-pill${index === this.selectedIndex ? " active" : ""}`;
       btn.innerHTML = `
-        <span class="title">${formation.name || "Untitled formation"}</span>
-        <span class="meta">${formation.categories?.length ?? 0} categories</span>
+        <span class="unit-pill-body">
+          <span class="title">${formation.name || "Untitled formation"}</span>
+          <span class="meta">${formation.categories?.length ?? 0} categories</span>
+        </span>
       `;
       this.listEl.appendChild(btn);
     });
@@ -173,11 +239,24 @@ export class FormationsPanel {
       this.selectedIndex = 0;
     }
     const formation = this.formations[this.selectedIndex];
-    (this.formEl.elements.namedItem("name") as HTMLInputElement).value = formation.name || "";
-    (this.formEl.elements.namedItem("description") as HTMLTextAreaElement).value = formation.description || "";
-    (this.formEl.elements.namedItem("image") as HTMLInputElement).value = formation.image || "";
+    const setValue = (name: string, value?: string) => {
+      const field = this.formEl.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | null;
+      if (field) field.value = value ?? "";
+    };
+
+    setValue("name", formation.name);
+    setValue("role", formation.role);
+    setValue("hqLocation", formation.hqLocation);
+    setValue("commander", formation.commander);
+    setValue("readiness", formation.readiness);
+    setValue("strengthSummary", formation.strengthSummary);
+    setValue("supportAssets", formation.supportAssets);
+    setValue("communications", formation.communications);
+    setValue("description", formation.description);
+    setValue("image", formation.image);
     this.renderList();
     this.renderCategories();
+    this.renderSubFormationRows();
     this.setStatus(`Editing ${formation.name || "formation"}.`, "default");
   }
 
@@ -194,6 +273,133 @@ export class FormationsPanel {
       categories.forEach((category) => this.appendCategoryRow(category));
     }
     this.updateUnitsCount(categories);
+  }
+
+  private renderSubFormationRows(): void {
+    if (!this.subFormationListEl) return;
+    this.subFormationListEl.innerHTML = "";
+    const formation = this.formations[this.selectedIndex];
+    const links = this.normalizeSubFormationLinks(formation);
+    if (!links.length) {
+      this.subFormationListEl.innerHTML = '<p class="empty">No attached formations.</p>';
+      return;
+    }
+    links.forEach((link) => this.appendSubFormationRow(link));
+    this.refreshSubFormationSelects();
+  }
+
+  private normalizeSubFormationLinks(formation: Formation): SubFormationAttachment[] {
+    if (Array.isArray(formation.subFormationLinks) && formation.subFormationLinks.length) {
+      return formation.subFormationLinks
+        .map((link) => {
+          const parsedId = typeof link.formationId === "string" ? Number(link.formationId) : link.formationId;
+          return {
+            ...link,
+            formationId: typeof parsedId === "number" && !Number.isNaN(parsedId) ? parsedId : undefined,
+          };
+        })
+        .filter((link): link is SubFormationAttachment => typeof link.formationId === "number");
+    }
+    if (Array.isArray(formation.subFormations) && formation.subFormations.length) {
+      return formation.subFormations
+        .map((id) => (typeof id === "number" && !Number.isNaN(id) ? { formationId: id } : null))
+        .filter((link): link is SubFormationAttachment => Boolean(link));
+    }
+    return [];
+  }
+
+  private appendSubFormationRow(link?: SubFormationAttachment): void {
+    if (!this.subFormationListEl) return;
+    if (this.subFormationListEl.querySelector(".empty")) {
+      this.subFormationListEl.innerHTML = "";
+    }
+    const row = document.createElement("div");
+    row.className = "sub-formation-row";
+    row.innerHTML = `
+      <div class="field">
+        <label>Formation</label>
+        <select data-field="formation"></select>
+      </div>
+      <div class="field">
+        <label>Assignment</label>
+        <input data-field="assignment" value="${link?.assignment ?? ""}" />
+      </div>
+      <div class="field">
+        <label>Strength</label>
+        <input data-field="strength" value="${link?.strength ?? ""}" />
+      </div>
+      <div class="field">
+        <label>Readiness</label>
+        <input data-field="readiness" value="${link?.readiness ?? ""}" />
+      </div>
+      <div class="field full-row">
+        <label>Notes</label>
+        <input data-field="notes" value="${link?.notes ?? ""}" />
+      </div>
+      <div class="row-actions">
+        <button type="button" class="ghost" data-action="remove-sub-formation">Remove</button>
+      </div>
+    `;
+    const select = row.querySelector<HTMLSelectElement>('select[data-field="formation"]');
+    if (select) {
+      this.populateSubFormationOptions(select, link?.formationId);
+    }
+    this.subFormationListEl.appendChild(row);
+  }
+
+  private populateSubFormationOptions(select: HTMLSelectElement, selectedId?: number): void {
+    const currentId = this.getCurrentFormationIdentity();
+    const previousValue = selectedId ?? (select.value ? Number(select.value) : undefined);
+    select.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select formation";
+    select.appendChild(placeholder);
+    this.formationOptions
+      .filter((option) => (currentId ? option.id !== currentId : true))
+      .forEach((option) => {
+        const opt = document.createElement("option");
+        opt.value = option.id.toString();
+        opt.textContent = option.name;
+        select.appendChild(opt);
+      });
+    if (previousValue && !Number.isNaN(previousValue)) {
+      select.value = previousValue.toString();
+    } else {
+      select.value = "";
+    }
+  }
+
+  private refreshSubFormationSelects(): void {
+    if (!this.subFormationListEl) return;
+    const selects = Array.from(this.subFormationListEl.querySelectorAll<HTMLSelectElement>('select[data-field="formation"]'));
+    selects.forEach((select) => {
+      const selected = select.value ? Number(select.value) : undefined;
+      this.populateSubFormationOptions(select, selected && !Number.isNaN(selected) ? selected : undefined);
+    });
+  }
+
+  private collectSubFormationLinks(): SubFormationAttachment[] {
+    if (!this.subFormationListEl) return [];
+    const rows = Array.from(this.subFormationListEl.querySelectorAll<HTMLElement>(".sub-formation-row"));
+    return rows
+      .map((row) => {
+        const select = row.querySelector<HTMLSelectElement>('select[data-field="formation"]');
+        if (!select || !select.value) return null;
+        const formationId = Number(select.value);
+        if (!Number.isFinite(formationId)) return null;
+        const read = (field: string) =>
+          row.querySelector<HTMLInputElement>(`[data-field="${field}"]`)?.value.trim() ?? "";
+        const attachment: SubFormationAttachment = {
+          formationId,
+          assignment: read("assignment") || undefined,
+          strength: read("strength") || undefined,
+          readiness: read("readiness") || undefined,
+          notes: read("notes") || undefined,
+        };
+        return attachment;
+      })
+      .filter((attachment): attachment is SubFormationAttachment => Boolean(attachment));
   }
 
   private appendCategoryRow(category?: FormationCategory): void {
@@ -243,8 +449,8 @@ export class FormationsPanel {
       const select = row.querySelector<HTMLSelectElement>('select[data-field="units"]');
       const units = select
         ? Array.from(select.selectedOptions)
-            .map((opt) => Number(opt.value))
-            .filter((value) => !Number.isNaN(value))
+          .map((opt) => Number(opt.value))
+          .filter((value) => !Number.isNaN(value))
         : [];
       return {
         name: (nameInput?.value || "").trim(),
@@ -257,46 +463,53 @@ export class FormationsPanel {
     const unique = new Set<number>();
     categories.forEach((category) => (category.units || []).forEach((unitId) => unique.add(unitId)));
     this.unitsCountEl.textContent = unique.size.toString();
-    this.renderSubFormationOptions();
+  }
+
+  private rebuildFormationOptions(): void {
+    this.formationOptions = this.formations.map((formation, index) => ({
+      id: formation.id ?? index + 1,
+      name: formation.name || `Formation ${index + 1}`,
+    }));
+    this.refreshSubFormationSelects();
+  }
+
+  private getCurrentFormationIdentity(): number | undefined {
+    const formation = this.formations[this.selectedIndex];
+    if (!formation) return undefined;
+    if (typeof formation.id === "number" && !Number.isNaN(formation.id)) {
+      return formation.id;
+    }
+    return this.selectedIndex >= 0 ? this.selectedIndex + 1 : undefined;
   }
 
   private saveFormation(): void {
     if (!this.formations.length) return;
     const formation = { ...this.formations[this.selectedIndex] };
-    formation.name = (this.formEl.elements.namedItem("name") as HTMLInputElement).value.trim();
-    formation.description = (this.formEl.elements.namedItem("description") as HTMLTextAreaElement).value.trim();
-    formation.image = (this.formEl.elements.namedItem("image") as HTMLInputElement).value.trim();
+    const readValue = (name: string) =>
+      (this.formEl.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | null)?.value.trim() ?? "";
+
+    formation.name = readValue("name");
+    formation.role = readValue("role") || undefined;
+    formation.hqLocation = readValue("hqLocation") || undefined;
+    formation.commander = readValue("commander") || undefined;
+    formation.readiness = readValue("readiness") || undefined;
+    formation.strengthSummary = readValue("strengthSummary") || undefined;
+    formation.supportAssets = readValue("supportAssets") || undefined;
+    formation.communications = readValue("communications") || undefined;
+    formation.description = readValue("description") || undefined;
+    formation.image = readValue("image") || undefined;
     formation.categories = this.collectCategoriesFromDom();
-    formation.subFormations = Array.from(this.subSelectEl.selectedOptions)
-      .map((option) => Number(option.value))
-      .filter((value) => !Number.isNaN(value));
+    formation.subFormationLinks = this.collectSubFormationLinks();
+    formation.subFormations = (formation.subFormationLinks || [])
+      .map((link) => link.formationId)
+      .filter((value): value is number => typeof value === "number" && !Number.isNaN(value));
     this.updateUnitsCount(formation.categories || []);
     this.formations[this.selectedIndex] = formation;
+    this.rebuildFormationOptions();
     formationService
       .saveFormations(this.formations)
       .then(() => this.setStatus("Formation saved.", "success"))
       .catch((error) => this.setStatus(error instanceof Error ? error.message : String(error), "error"));
-  }
-
-  private renderSubFormationOptions(): void {
-    if (!this.subSelectEl) return;
-    const current = this.formations[this.selectedIndex];
-    this.subSelectEl.innerHTML = "";
-    const available = this.formationOptions.filter((option) => option.id && option.id !== current?.id);
-    if (!available.length) {
-      const option = document.createElement("option");
-      option.disabled = true;
-      option.textContent = "No other formations available";
-      this.subSelectEl.appendChild(option);
-      return;
-    }
-    available.forEach((option) => {
-      const opt = document.createElement("option");
-      opt.value = option.id.toString();
-      opt.textContent = option.name;
-      if (current?.subFormations?.includes(option.id)) opt.selected = true;
-      this.subSelectEl.appendChild(opt);
-    });
   }
 
   private setStatus(message: string, tone: "default" | "success" | "error"): void {

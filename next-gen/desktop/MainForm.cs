@@ -12,7 +12,6 @@ namespace PhillyRTSToolkit
     {
         private readonly string dbRoot;
         private readonly string distIndexPath;
-        private readonly string legacyIndexPath;
         private readonly DatabaseService database;
 
         public MainForm()
@@ -25,7 +24,6 @@ namespace PhillyRTSToolkit
             var dbPath = Path.Combine(dbRoot, "rts.db");
             database = new DatabaseService(dbPath, schemaPath);
             distIndexPath = Path.Combine(nextGenRoot, "frontend", "app", "dist", "index.html");
-            legacyIndexPath = Path.Combine(nextGenRoot, "frontend", "legacy", "index.html");
             database.InitializeAsync().GetAwaiter().GetResult();
             InitWebView();
         }
@@ -82,12 +80,7 @@ namespace PhillyRTSToolkit
                 MapVirtualHost("appassets", Path.GetDirectoryName(distIndexPath)!);
                 return new Uri("https://appassets/index.html");
             }
-            if (File.Exists(legacyIndexPath))
-            {
-                MapVirtualHost("legacyassets", Path.GetDirectoryName(legacyIndexPath)!);
-                return new Uri("https://legacyassets/index.html");
-            }
-            throw new FileNotFoundException("No frontend index.html found in next-gen/frontend/app/dist or frontend/legacy.");
+            throw new FileNotFoundException("Missing next-gen frontend build. Run 'npm run build' inside next-gen/frontend/app to generate dist/index.html.");
         }
 
         private void MapVirtualHost(string hostName, string folder)
@@ -199,6 +192,82 @@ namespace PhillyRTSToolkit
                         SendJsonPayload("settings-data", settings);
                     }
                 }
+                else if (type == "get-weapons")
+                {
+                    var weapons = await database.GetWeaponsAsync().ConfigureAwait(false);
+                    if (weapons.Count == 0)
+                    {
+                        weapons = await LoadWeaponsFallbackAsync().ConfigureAwait(false);
+                    }
+                    SendArrayResponse("weapons-data", "weapons", weapons);
+                }
+                else if (type == "save-weapons")
+                {
+                    if (msg.TryGetProperty("payload", out var payload) && payload.TryGetProperty("weapons", out var weaponsElement))
+                    {
+                        await database.SaveWeaponsAsync(weaponsElement).ConfigureAwait(false);
+                        await UpdatePayloadSectionAsync("weapons", weaponsElement).ConfigureAwait(false);
+                        var weapons = await database.GetWeaponsAsync().ConfigureAwait(false);
+                        SendArrayResponse("weapons-data", "weapons", weapons);
+                    }
+                }
+                else if (type == "get-ammo")
+                {
+                    var ammoTemplates = await database.GetAmmoTemplatesAsync().ConfigureAwait(false);
+                    if (ammoTemplates.Count == 0)
+                    {
+                        ammoTemplates = await LoadAmmoFallbackAsync().ConfigureAwait(false);
+                    }
+                    SendArrayResponse("ammo-data", "ammo", ammoTemplates);
+                }
+                else if (type == "save-ammo")
+                {
+                    if (msg.TryGetProperty("payload", out var payload) && payload.TryGetProperty("ammo", out var ammoElement))
+                    {
+                        await database.SaveAmmoTemplatesAsync(ammoElement).ConfigureAwait(false);
+                        await UpdatePayloadSectionAsync("ammo", ammoElement).ConfigureAwait(false);
+                        var ammoTemplates = await database.GetAmmoTemplatesAsync().ConfigureAwait(false);
+                        SendArrayResponse("ammo-data", "ammo", ammoTemplates);
+                    }
+                }
+                else if (type == "get-fire-modes")
+                {
+                    var fireTemplates = await database.GetFireModeTemplatesAsync().ConfigureAwait(false);
+                    if (fireTemplates.Count == 0)
+                    {
+                        fireTemplates = await LoadFireModeFallbackAsync().ConfigureAwait(false);
+                    }
+                    SendArrayResponse("fire-modes-data", "fireModes", fireTemplates);
+                }
+                else if (type == "save-fire-modes")
+                {
+                    if (msg.TryGetProperty("payload", out var payload) && payload.TryGetProperty("fireModes", out var fireElement))
+                    {
+                        await database.SaveFireModeTemplatesAsync(fireElement).ConfigureAwait(false);
+                        await UpdatePayloadSectionAsync("fireModes", fireElement).ConfigureAwait(false);
+                        var fireTemplates = await database.GetFireModeTemplatesAsync().ConfigureAwait(false);
+                        SendArrayResponse("fire-modes-data", "fireModes", fireTemplates);
+                    }
+                }
+                else if (type == "get-weapon-tags")
+                {
+                    var tags = await database.GetWeaponTagsAsync().ConfigureAwait(false);
+                    if (tags.Count == 0)
+                    {
+                        tags = await LoadWeaponTagsFallbackAsync().ConfigureAwait(false);
+                    }
+                    SendJsonPayload("weapon-tags-data", tags);
+                }
+                else if (type == "save-weapon-tags")
+                {
+                    if (msg.TryGetProperty("payload", out var payload))
+                    {
+                        await database.SaveWeaponTagsAsync(payload).ConfigureAwait(false);
+                        await UpdatePayloadSectionAsync("weaponTags", payload).ConfigureAwait(false);
+                        var tags = await database.GetWeaponTagsAsync().ConfigureAwait(false);
+                        SendJsonPayload("weapon-tags-data", tags);
+                    }
+                }
             }
             catch
             {
@@ -214,6 +283,7 @@ namespace PhillyRTSToolkit
             var nations = TryRead("nations.json");
             var weapons = TryRead("weapons.json");
             var ammo = TryRead("ammo.json");
+            var fireModes = TryRead("fireModes.json");
             var weaponTags = TryRead("weaponTags.json");
 
             var merged = new JsonObject();
@@ -241,6 +311,7 @@ namespace PhillyRTSToolkit
             };
             if (weapons.HasValue) payloadNode["weapons"] = JsonNode.Parse(weapons.Value.GetRawText());
             if (ammo.HasValue) payloadNode["ammo"] = JsonNode.Parse(ammo.Value.GetRawText());
+            if (fireModes.HasValue) payloadNode["fireModes"] = JsonNode.Parse(fireModes.Value.GetRawText());
             if (weaponTags.HasValue) payloadNode["weaponTags"] = JsonNode.Parse(weaponTags.Value.GetRawText());
             return payloadNode;
         }
@@ -279,6 +350,8 @@ namespace PhillyRTSToolkit
                 File.WriteAllText(Path.Combine(dbRoot, "weapons.json"), weapons.GetRawText());
             if (payload.TryGetProperty("ammo", out var ammo))
                 File.WriteAllText(Path.Combine(dbRoot, "ammo.json"), ammo.GetRawText());
+            if (payload.TryGetProperty("fireModes", out var fireModes))
+                File.WriteAllText(Path.Combine(dbRoot, "fireModes.json"), fireModes.GetRawText());
             if (payload.TryGetProperty("weaponTags", out var wtags))
                 File.WriteAllText(Path.Combine(dbRoot, "weaponTags.json"), wtags.GetRawText());
         }
@@ -292,7 +365,7 @@ namespace PhillyRTSToolkit
                 {
                     version = Application.ProductVersion,
                     databasePath = Path.Combine(dbRoot, "rts.db"),
-                    mode = File.Exists(distIndexPath) ? "dist" : "legacy"
+                    mode = File.Exists(distIndexPath) ? "dist" : "missing"
                 }
             };
             webView.CoreWebView2!.PostWebMessageAsJson(JsonSerializer.Serialize(info));
@@ -310,26 +383,22 @@ namespace PhillyRTSToolkit
 
         private static void MergeStructuredData(JsonNode destination, JsonNode? structured)
         {
-            if (destination == null || structured == null) return;
-            if (structured["data"] is not JsonObject structuredData) return;
-            var destData = destination["data"] as JsonObject;
-            if (destData == null)
-            {
-                destData = new JsonObject();
-                destination["data"] = destData;
-            }
+            if (destination is not JsonObject dest || structured is not JsonObject structuredObj) return;
 
-            if (structuredData["units"] is JsonNode unitsNode)
+            foreach (var kvp in structuredObj)
             {
-                destData["units"] = unitsNode.DeepClone();
-            }
-            if (structuredData["formations"] is JsonNode formationsNode)
-            {
-                destData["formations"] = formationsNode.DeepClone();
-            }
-            if (structuredData["nations"] is JsonNode nationsNode)
-            {
-                destData["nations"] = nationsNode.DeepClone();
+                if (kvp.Key == "data" && kvp.Value is JsonObject structuredData)
+                {
+                    var destData = dest["data"] as JsonObject ?? new JsonObject();
+                    dest["data"] = destData;
+                    foreach (var dataPair in structuredData)
+                    {
+                        destData[dataPair.Key] = dataPair.Value?.DeepClone();
+                    }
+                    continue;
+                }
+
+                dest[kvp.Key] = kvp.Value?.DeepClone();
             }
         }
 
@@ -377,6 +446,30 @@ namespace PhillyRTSToolkit
             return new JsonObject();
         }
 
+        private async Task<JsonArray> LoadWeaponsFallbackAsync()
+        {
+            var payloadNode = await LoadPayloadNodeAsync().ConfigureAwait(false);
+            return PayloadNormalization.NormalizeWeaponCollection(payloadNode?["weapons"]);
+        }
+
+        private async Task<JsonArray> LoadAmmoFallbackAsync()
+        {
+            var payloadNode = await LoadPayloadNodeAsync().ConfigureAwait(false);
+            return PayloadNormalization.NormalizeAmmoCollection(payloadNode?["ammo"]);
+        }
+
+        private async Task<JsonArray> LoadFireModeFallbackAsync()
+        {
+            var payloadNode = await LoadPayloadNodeAsync().ConfigureAwait(false);
+            return PayloadNormalization.NormalizeFireModeCollection(payloadNode?["fireModes"]);
+        }
+
+        private async Task<JsonObject> LoadWeaponTagsFallbackAsync()
+        {
+            var payloadNode = await LoadPayloadNodeAsync().ConfigureAwait(false);
+            return PayloadNormalization.NormalizeWeaponTags(payloadNode?["weaponTags"]);
+        }
+
         private async Task UpdateDataSectionAsync(string key, JsonElement value)
         {
             var payloadNode = await LoadPayloadNodeAsync().ConfigureAwait(false);
@@ -394,6 +487,13 @@ namespace PhillyRTSToolkit
         {
             var payloadNode = await LoadPayloadNodeAsync().ConfigureAwait(false);
             payloadNode["settings"] = JsonNode.Parse(value.GetRawText()) ?? new JsonObject();
+            await PersistPayloadNodeAsync(payloadNode).ConfigureAwait(false);
+        }
+
+        private async Task UpdatePayloadSectionAsync(string key, JsonElement value)
+        {
+            var payloadNode = await LoadPayloadNodeAsync().ConfigureAwait(false);
+            payloadNode[key] = JsonNode.Parse(value.GetRawText()) ?? new JsonArray();
             await PersistPayloadNodeAsync(payloadNode).ConfigureAwait(false);
         }
 
@@ -437,12 +537,40 @@ namespace PhillyRTSToolkit
         private void SendJsonPayload(string messageType, JsonNode? payload)
         {
             payload ??= new JsonObject();
-            var message = new JsonObject
+            var envelope = new JsonObject
             {
                 ["type"] = messageType,
                 ["payload"] = payload
             };
-            webView.CoreWebView2!.PostWebMessageAsJson(message.ToJsonString());
+            var messageJson = envelope.ToJsonString();
+
+            void Post() => webView.CoreWebView2?.PostWebMessageAsJson(messageJson);
+
+            if (InvokeRequired)
+            {
+                BeginInvoke((Action)(() =>
+                {
+                    try
+                    {
+                        Post();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.Error.WriteLine($"[MainForm] Failed to deliver '{messageType}' payload: {ex.Message}");
+                    }
+                }));
+            }
+            else
+            {
+                try
+                {
+                    Post();
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[MainForm] Failed to deliver '{messageType}' payload: {ex.Message}");
+                }
+            }
         }
     }
 }

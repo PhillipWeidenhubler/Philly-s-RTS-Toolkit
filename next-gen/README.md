@@ -1,11 +1,10 @@
 # Next-Gen RTS Toolkit
 
-This directory hosts the rebuilt application using SQLite + C# (WebView host) + TS/SCSS/PostCSS (+ optional PHP) while the legacy app remains untouched in the repo root.
+This directory hosts the rebuilt application using SQLite + C# (WebView host) + TS/SCSS/PostCSS.
 
 ## Structure
 
-- `desktop/` – WinForms WebView host that now boots from `frontend/legacy` and persists state in `desktop/database/rts.db`.
-- `frontend/legacy/` – Snapshot of the existing HTML/CSS/JS assets for reference while porting features.
+- `desktop/` – WinForms WebView host that serves `frontend/app/dist/index.html` and persists state in `desktop/database/rts.db`.
 - `frontend/app/` – New Vite/TypeScript/SCSS workspace (see its README for usage).
 
 ## Next Steps
@@ -15,5 +14,5 @@ This directory hosts the rebuilt application using SQLite + C# (WebView host) + 
 - Add API endpoints / PHP scaffolding once the desktop pipeline is stable.
 
 ### Dev Notes
-- When you run `npm run build` inside `frontend/app`, the output goes to `frontend/app/dist`. The desktop host automatically prefers this build; if the dist index is missing it falls back to `frontend/legacy/index.html`.
-- The WebView bridge currently understands `request-load`, `save`, and `host-info-request` messages. The TS placeholder demonstrates how to request host info; expand this pattern for future modules.
+- When you run `npm run build` inside `frontend/app`, the output goes to `frontend/app/dist`. The desktop host requires this build; run `run_next_gen.bat` to rebuild both the frontend bundle and the desktop executable.
+- The WebView bridge currently understands `request-load`, `save`, and `host-info-request` messages. The TS shell demonstrates how to request host info; expand this pattern for future modules.

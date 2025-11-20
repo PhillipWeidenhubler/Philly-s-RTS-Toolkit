@@ -39,6 +39,9 @@ export class SettingsPanel {
               <option value="">System Default</option>
               <option value="light">Light</option>
               <option value="dark">Dark</option>
+              <option value="midnight">Midnight</option>
+              <option value="aurora">Aurora</option>
+              <option value="terminal">Terminal</option>
             </select>
           </div>
           <div class="field">

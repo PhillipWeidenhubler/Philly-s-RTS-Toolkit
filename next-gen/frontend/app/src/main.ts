@@ -5,6 +5,7 @@ import { FormationsPanel } from "./modules/formationsPanel";
 import { NationsPanel } from "./modules/nationsPanel";
 import { SettingsPanel } from "./modules/settingsPanel";
 import { StatsPanel } from "./modules/statsPanel";
+import { TemplatesPanel } from "./modules/templatesPanel";
 import { unitService } from "./services/unitService";
 import { formationService } from "./services/formationService";
 import { nationService } from "./services/nationService";
@@ -15,17 +16,17 @@ type PanelDefinition = {
   key: string;
   label: string;
   description: string;
-  group: "Editors" | "Insights";
+  group: "Editors" | "Insights" | "Settings";
   factory: (container: HTMLElement) => { init: () => void | Promise<void> };
 };
 
 const panels: PanelDefinition[] = [
   {
-    key: "units",
-    label: "Units",
-    description: "Edit and score tactical units",
+    key: "nations",
+    label: "Nations",
+    description: "Assign formations to nations",
     group: "Editors",
-    factory: (container) => new UnitEditor(container),
+    factory: (container) => new NationsPanel(container),
   },
   {
     key: "formations",
@@ -35,18 +36,18 @@ const panels: PanelDefinition[] = [
     factory: (container) => new FormationsPanel(container),
   },
   {
-    key: "nations",
-    label: "Nations",
-    description: "Assign formations to nations",
+    key: "units",
+    label: "Units",
+    description: "Edit and score tactical units",
     group: "Editors",
-    factory: (container) => new NationsPanel(container),
+    factory: (container) => new UnitEditor(container),
   },
   {
-    key: "settings",
-    label: "Settings",
-    description: "Application preferences",
+    key: "templates",
+    label: "Templates",
+    description: "Manage weapon & ammo presets",
     group: "Editors",
-    factory: (container) => new SettingsPanel(container),
+    factory: (container) => new TemplatesPanel(container),
   },
   {
     key: "insights",
@@ -54,6 +55,13 @@ const panels: PanelDefinition[] = [
     description: "Force readiness overview",
     group: "Insights",
     factory: (container) => new StatsPanel(container),
+  },
+  {
+    key: "settings",
+    label: "Settings",
+    description: "Application preferences",
+    group: "Settings",
+    factory: (container) => new SettingsPanel(container),
   },
 ];
 
@@ -64,8 +72,8 @@ if (root) {
     <div class="app-layout">
       <aside class="primary-nav">
         <div class="brand">
-          <span class="eyebrow">Philly's RTS Toolkit</span>
-          <h1>Operations Console</h1>
+          <span class="eyebrow">Operations Toolbar</span>
+          <h1>Philly's RTS Toolkit</h1>
         </div>
         <nav class="nav-sections" data-role="nav-container"></nav>
       </aside>

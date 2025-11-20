@@ -15,6 +15,8 @@ export class NationsPanel {
   private formEl!: HTMLFormElement;
   private statusEl!: HTMLElement;
   private formationSelectEl!: HTMLSelectElement;
+  private nationCountEl?: HTMLElement;
+  private availableFormationCountEl?: HTMLElement;
   private nations: Nation[] = [];
   private formationOptions: { id: number; name: string }[] = [];
   private selectedIndex = 0;
@@ -29,6 +31,7 @@ export class NationsPanel {
     this.bindEvents();
     nationService.subscribe((nations) => {
       this.nations = nations.length ? nations : [createNation()];
+      if (this.nationCountEl) this.nationCountEl.textContent = nations.length.toString();
       this.renderList();
       this.syncSelection();
     });
@@ -37,6 +40,7 @@ export class NationsPanel {
         id: formation.id ?? index,
         name: formation.name || `Formation ${index + 1}`,
       }));
+      if (this.availableFormationCountEl) this.availableFormationCountEl.textContent = formations.length.toString();
       this.renderFormationSelect();
     });
     nationService.loadNations().catch((error) => {
@@ -46,20 +50,32 @@ export class NationsPanel {
 
   private renderLayout(): void {
     this.root.innerHTML = `
-      <div class="panel nations-panel">
-        <div class="panel-heading">
-          <h3>Nations</h3>
-          <p class="muted">Assign formations to a nation profile.</p>
-        </div>
-        <div class="split-layout">
-          <aside class="list-pane">
-            <div class="list-actions">
-              <button type="button" class="ghost" data-action="add-nation">+ Nation</button>
+      <div class="workspace">
+        <aside class="sidebar">
+          <header class="sidebar-header">
+            <div>
+              <p class="eyebrow">Doctrine profiles</p>
+              <h1>Nation Builder</h1>
+              <p class="muted">Bind formations to geopolitical blueprints.</p>
             </div>
-            <div class="list-scroll" data-role="nation-list"></div>
-          </aside>
-          <section class="detail-pane">
-            <form data-role="nation-form" class="grid-3">
+            <button type="button" class="ghost" data-action="add-nation">+ Nation</button>
+          </header>
+          <div class="unit-list" data-role="nation-list"></div>
+          <div class="meta-bar compact">
+            <span>Nations: <strong data-role="nation-count">0</strong></span>
+            <span>Formations ready: <strong data-role="nation-formation-count">0</strong></span>
+          </div>
+        </aside>
+        <section class="editor">
+          <header class="editor-header">
+            <div>
+              <p class="eyebrow">Nation Editor</p>
+              <h2>Strategic Profiles</h2>
+              <p class="muted">Track doctrine notes, emblems, and attached formations.</p>
+            </div>
+          </header>
+          <form data-role="nation-form" class="editor-form">
+            <section class="panel grid-3">
               <div class="field">
                 <label>Name</label>
                 <input name="name" autocomplete="off" />
@@ -72,20 +88,20 @@ export class NationsPanel {
                 <label>Image</label>
                 <input name="image" placeholder="nations/emblem.png" />
               </div>
-              <div class="field full">
-                <div class="panel-heading compact">
-                  <label>Assigned formations</label>
-                  <span class="muted small">Ctrl/Cmd + Click to multi-select</span>
-                </div>
-                <select data-role="formation-select" multiple size="6"></select>
+            </section>
+            <section class="panel">
+              <div class="panel-heading">
+                <h3>Assigned formations</h3>
+                <span class="muted small">Ctrl/Cmd + click to multi-select</span>
               </div>
-              <div class="field full">
-                <button type="submit" class="primary">Save nation</button>
-              </div>
-            </form>
-            <div class="status-bar compact" data-role="nation-status">Select a nation.</div>
-          </section>
-        </div>
+              <select data-role="formation-select" multiple size="6"></select>
+            </section>
+            <div class="form-actions">
+              <button type="submit" class="primary">Save nation</button>
+            </div>
+          </form>
+          <div class="status-bar" data-role="nation-status">Select a nation.</div>
+        </section>
       </div>
     `;
   }
@@ -95,33 +111,39 @@ export class NationsPanel {
     this.formEl = this.root.querySelector<HTMLFormElement>('[data-role="nation-form"]')!;
     this.statusEl = this.root.querySelector<HTMLElement>('[data-role="nation-status"]')!;
     this.formationSelectEl = this.root.querySelector<HTMLSelectElement>('[data-role="formation-select"]')!;
+    this.nationCountEl = this.root.querySelector<HTMLElement>('[data-role="nation-count"]') ?? undefined;
+    this.availableFormationCountEl = this.root.querySelector<HTMLElement>('[data-role="nation-formation-count"]') ?? undefined;
   }
 
   private bindEvents(): void {
     this.listEl.addEventListener("click", (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-index]");
       if (!button) return;
-      this.selectedIndex = Number(button.dataset.index);
+      const index = Number(button.dataset.index);
+      if (Number.isNaN(index)) return;
+      this.selectedIndex = index;
       this.syncSelection();
     });
+
     this.formEl.addEventListener("submit", (event) => {
       event.preventDefault();
       this.saveNation();
     });
+
     this.root.addEventListener("click", (event) => {
-      const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-action]");
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action="add-nation"]');
       if (!button) return;
-      if (button.dataset.action === "add-nation") {
-        this.addNation();
-      }
+      this.addNation();
     });
   }
 
   private addNation(): void {
     this.nations.push(createNation());
     this.selectedIndex = this.nations.length - 1;
+    if (this.nationCountEl) this.nationCountEl.textContent = this.nations.length.toString();
     this.renderList();
     this.syncSelection();
+    this.setStatus("New nation ready for details.", "success");
   }
 
   private renderList(): void {
@@ -134,7 +156,7 @@ export class NationsPanel {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.dataset.index = index.toString();
-      btn.className = `list-pill${index === this.selectedIndex ? " active" : ""}`;
+      btn.className = `unit-pill${index === this.selectedIndex ? " active" : ""}`;
       btn.innerHTML = `
         <span class="title">${nation.name || "Unnamed nation"}</span>
         <span class="meta">${nation.formations?.length ?? 0} formations</span>

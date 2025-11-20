@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
+using System.Data.Common;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -41,6 +43,18 @@ namespace PhillyRTSToolkit
                 var schemaSql = await File.ReadAllTextAsync(_schemaPath, Encoding.UTF8).ConfigureAwait(false);
                 await ExecuteScriptAsync(connection, schemaSql).ConfigureAwait(false);
             }
+
+            await EnsureUnitSchemaAsync(connection).ConfigureAwait(false);
+
+            await EnsureAmmoSchemaAsync(connection).ConfigureAwait(false);
+
+            await EnsureUnitGunFireModesSchemaAsync(connection).ConfigureAwait(false);
+
+            await EnsureFireTemplateSchemaAsync(connection).ConfigureAwait(false);
+
+            await EnsureArmorySchemaAsync(connection).ConfigureAwait(false);
+
+            await EnsureFormationSchemaAsync(connection).ConfigureAwait(false);
         }
 
         private static async Task ExecuteScriptAsync(SqliteConnection connection, string script)
@@ -54,6 +68,257 @@ namespace PhillyRTSToolkit
                 command.CommandText = trimmed + ";";
                 await command.ExecuteNonQueryAsync().ConfigureAwait(false);
             }
+        }
+
+        private static async Task EnsureAmmoSchemaAsync(SqliteConnection connection)
+        {
+            var existingColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var checkCmd = connection.CreateCommand();
+            checkCmd.CommandText = "PRAGMA table_info(ammo_templates);";
+            await using var reader = await checkCmd.ExecuteReaderAsync().ConfigureAwait(false);
+            while (await reader.ReadAsync().ConfigureAwait(false))
+            {
+                existingColumns.Add(reader.GetString(1));
+            }
+
+            var requiredColumns = new (string Name, string Definition)[]
+            {
+                ("caliber_desc", "TEXT"),
+                ("ammo_type", "TEXT"),
+                ("ammo_per_soldier", "REAL"),
+                ("penetration", "REAL"),
+                ("he_deadliness", "REAL"),
+                ("dispersion", "REAL"),
+                ("range_mod", "REAL"),
+                ("grain", "REAL"),
+                ("notes", "TEXT"),
+                ("airburst", "INTEGER"),
+                ("metadata", "TEXT"),
+                ("sub_count", "REAL"),
+                ("sub_damage", "REAL"),
+                ("sub_penetration", "REAL"),
+                ("fps", "REAL"),
+                ("payload", "TEXT")
+            };
+
+            foreach (var column in requiredColumns)
+            {
+                if (existingColumns.Contains(column.Name)) continue;
+                var alterCmd = connection.CreateCommand();
+                alterCmd.CommandText = $"ALTER TABLE ammo_templates ADD COLUMN {column.Name} {column.Definition};";
+                await alterCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+        }
+
+        private static async Task EnsureFireTemplateSchemaAsync(SqliteConnection connection)
+        {
+            var checkCmd = connection.CreateCommand();
+            checkCmd.CommandText = "CREATE TABLE IF NOT EXISTS fire_mode_templates (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, rounds REAL, min_range REAL, max_range REAL, cooldown REAL, ammo_ref TEXT, notes TEXT, payload TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);";
+            await checkCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+            await EnsureColumnsAsync(connection, "fire_mode_templates", new (string Name, string Definition)[]
+            {
+                ("min_range", "REAL"),
+                ("max_range", "REAL")
+            }).ConfigureAwait(false);
+        }
+
+        private static Task EnsureUnitGunFireModesSchemaAsync(SqliteConnection connection)
+        {
+            return EnsureColumnsAsync(connection, "unit_gun_fire_modes", new (string Name, string Definition)[]
+            {
+                ("min_range", "REAL"),
+                ("max_range", "REAL")
+            });
+        }
+
+        private static async Task EnsureArmorySchemaAsync(SqliteConnection connection)
+        {
+            var (hasMetadataColumn, hasPayloadColumn) = await GetWeaponColumnStateAsync(connection).ConfigureAwait(false);
+
+            if (!hasMetadataColumn)
+            {
+                var alterCmd = connection.CreateCommand();
+                alterCmd.CommandText = "ALTER TABLE weapons ADD COLUMN metadata TEXT;";
+                await alterCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+                hasMetadataColumn = true;
+            }
+
+            if (!hasPayloadColumn)
+            {
+                var alterCmd = connection.CreateCommand();
+                alterCmd.CommandText = "ALTER TABLE weapons ADD COLUMN payload TEXT;";
+                await alterCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+                hasPayloadColumn = true;
+            }
+
+            if (hasMetadataColumn && hasPayloadColumn)
+            {
+                var copyMetadataCmd = connection.CreateCommand();
+                copyMetadataCmd.CommandText = "UPDATE weapons SET metadata = payload WHERE (metadata IS NULL OR metadata = '') AND payload IS NOT NULL AND payload <> '';";
+                await copyMetadataCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+                var copyPayloadCmd = connection.CreateCommand();
+                copyPayloadCmd.CommandText = "UPDATE weapons SET payload = metadata WHERE (payload IS NULL OR payload = '') AND metadata IS NOT NULL AND metadata <> '';";
+                await copyPayloadCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+        }
+
+        private static async Task EnsureFormationSchemaAsync(SqliteConnection connection)
+        {
+            await EnsureColumnsAsync(connection, "formations", new (string Name, string Definition)[]
+            {
+                ("role", "TEXT"),
+                ("hq_location", "TEXT"),
+                ("commander", "TEXT"),
+                ("readiness", "TEXT"),
+                ("strength_summary", "TEXT"),
+                ("support_assets", "TEXT"),
+                ("communications", "TEXT")
+            }).ConfigureAwait(false);
+
+            await EnsureColumnsAsync(connection, "formation_children", new (string Name, string Definition)[]
+            {
+                ("assignment", "TEXT"),
+                ("strength", "TEXT"),
+                ("notes", "TEXT"),
+                ("readiness", "TEXT")
+            }).ConfigureAwait(false);
+        }
+
+        private static async Task EnsureUnitSchemaAsync(SqliteConnection connection)
+        {
+            await EnsureColumnsAsync(connection, "units", new (string Name, string Definition)[]
+            {
+                ("price", "INTEGER"),
+                ("category", "TEXT"),
+                ("internal_category", "TEXT"),
+                ("tier", "TEXT"),
+                ("description", "TEXT"),
+                ("image", "TEXT"),
+                ("created_at", "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"),
+                ("updated_at", "TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP")
+            }).ConfigureAwait(false);
+
+            await EnsureColumnsAsync(connection, "unit_stats", new (string Name, string Definition)[]
+            {
+                ("armor", "REAL"),
+                ("health", "REAL"),
+                ("squad_size", "REAL"),
+                ("visual_range", "REAL"),
+                ("stealth", "REAL"),
+                ("speed", "REAL"),
+                ("weight", "REAL")
+            }).ConfigureAwait(false);
+
+            await EnsureColumnsAsync(connection, "unit_capabilities", new (string Name, string Definition)[]
+            {
+                ("static_line_jump", "INTEGER"),
+                ("halo_haho", "INTEGER"),
+                ("sprint_distance", "REAL"),
+                ("sprint_speed", "REAL"),
+                ("sprint_cooldown", "REAL"),
+                ("laser_designator", "INTEGER")
+            }).ConfigureAwait(false);
+
+            await EnsureColumnsAsync(connection, "unit_grenades", new (string Name, string Definition)[]
+            {
+                ("smoke", "INTEGER"),
+                ("flash", "INTEGER"),
+                ("thermite", "INTEGER"),
+                ("frag", "INTEGER"),
+                ("total", "INTEGER")
+            }).ConfigureAwait(false);
+
+            await EnsureColumnsAsync(connection, "unit_guns", new (string Name, string Definition)[]
+            {
+                ("name", "TEXT"),
+                ("category", "TEXT"),
+                ("caliber", "TEXT"),
+                ("barrel_length", "REAL"),
+                ("range", "REAL"),
+                ("dispersion", "REAL"),
+                ("count", "INTEGER"),
+                ("ammo_per_soldier", "INTEGER"),
+                ("total_ammo", "INTEGER"),
+                ("magazine_size", "INTEGER"),
+                ("reload_speed", "REAL"),
+                ("target_acquisition", "REAL"),
+                ("trajectories", "TEXT"),
+                ("traits", "TEXT")
+            }).ConfigureAwait(false);
+
+            await EnsureColumnsAsync(connection, "unit_gun_ammo", new (string Name, string Definition)[]
+            {
+                ("name", "TEXT"),
+                ("ammo_type", "TEXT"),
+                ("ammo_per_soldier", "INTEGER"),
+                ("penetration", "REAL"),
+                ("he_deadliness", "REAL"),
+                ("dispersion", "REAL"),
+                ("range_mod", "REAL"),
+                ("grain", "REAL"),
+                ("notes", "TEXT"),
+                ("airburst", "INTEGER"),
+                ("sub_count", "INTEGER"),
+                ("sub_damage", "REAL"),
+                ("sub_penetration", "REAL"),
+                ("fps", "REAL")
+            }).ConfigureAwait(false);
+
+            await EnsureColumnsAsync(connection, "unit_equipment", new (string Name, string Definition)[]
+            {
+                ("name", "TEXT"),
+                ("type", "TEXT"),
+                ("description", "TEXT"),
+                ("notes", "TEXT"),
+                ("quantity", "INTEGER")
+            }).ConfigureAwait(false);
+        }
+
+        private static async Task EnsureColumnsAsync(SqliteConnection connection, string tableName, (string Name, string Definition)[] columns)
+        {
+            var existingColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var checkCmd = connection.CreateCommand();
+            checkCmd.CommandText = $"PRAGMA table_info({tableName});";
+            await using (var reader = await checkCmd.ExecuteReaderAsync().ConfigureAwait(false))
+            {
+                while (await reader.ReadAsync().ConfigureAwait(false))
+                {
+                    existingColumns.Add(reader.GetString(1));
+                }
+            }
+
+            foreach (var column in columns)
+            {
+                if (existingColumns.Contains(column.Name)) continue;
+                var alterCmd = connection.CreateCommand();
+                alterCmd.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {column.Name} {column.Definition};";
+                await alterCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+        }
+
+        private static async Task<(bool hasMetadataColumn, bool hasPayloadColumn)> GetWeaponColumnStateAsync(SqliteConnection connection)
+        {
+            var hasMetadataColumn = false;
+            var hasPayloadColumn = false;
+            var checkCmd = connection.CreateCommand();
+            checkCmd.CommandText = "PRAGMA table_info(weapons);";
+            await using var reader = await checkCmd.ExecuteReaderAsync().ConfigureAwait(false);
+            while (await reader.ReadAsync().ConfigureAwait(false))
+            {
+                var columnName = reader.GetString(1);
+                if (string.Equals(columnName, "metadata", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasMetadataColumn = true;
+                }
+                else if (string.Equals(columnName, "payload", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasPayloadColumn = true;
+                }
+            }
+
+            return (hasMetadataColumn, hasPayloadColumn);
         }
 
         public async Task<string?> LoadAppStateAsync()
@@ -86,11 +351,37 @@ ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, updated_at = excluded.
         public async Task SaveStructuredDataAsync(JsonElement payload)
         {
             await InitializeAsync().ConfigureAwait(false);
-            if (!payload.TryGetProperty("data", out var data)) return;
 
-            if (data.TryGetProperty("units", out var units))
+            if (payload.TryGetProperty("data", out var data))
             {
-                await RewriteUnitsAsync(units).ConfigureAwait(false);
+                if (data.TryGetProperty("units", out var units))
+                {
+                    await RewriteUnitsAsync(units).ConfigureAwait(false);
+                }
+            }
+
+            if (payload.TryGetProperty("weapons", out var weapons))
+            {
+                var weaponsNode = JsonNode.Parse(weapons.GetRawText());
+                await RewriteWeaponsAsync(weaponsNode).ConfigureAwait(false);
+            }
+
+            if (payload.TryGetProperty("ammo", out var ammo))
+            {
+                var ammoNode = JsonNode.Parse(ammo.GetRawText());
+                await RewriteAmmoTemplatesAsync(ammoNode).ConfigureAwait(false);
+            }
+
+            if (payload.TryGetProperty("fireModes", out var fireModes))
+            {
+                var fireNode = JsonNode.Parse(fireModes.GetRawText());
+                await RewriteFireModeTemplatesAsync(fireNode).ConfigureAwait(false);
+            }
+
+            if (payload.TryGetProperty("weaponTags", out var tags))
+            {
+                var tagsNode = JsonNode.Parse(tags.GetRawText());
+                await RewriteWeaponTagsAsync(tagsNode).ConfigureAwait(false);
             }
         }
 
@@ -103,14 +394,22 @@ ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, updated_at = excluded.
             var unitsArray = await LoadUnitsAsync(connection).ConfigureAwait(false);
             var formationsArray = await LoadFormationsAsync(connection).ConfigureAwait(false);
             var nationsArray = await LoadNationsAsync(connection).ConfigureAwait(false);
+            var weaponsArray = await LoadWeaponsAsync(connection).ConfigureAwait(false);
+            var ammoArray = await LoadAmmoTemplatesAsync(connection).ConfigureAwait(false);
+            var fireArray = await LoadFireModeTemplatesAsync(connection).ConfigureAwait(false);
+            var tagObject = await LoadWeaponTagsAsync(connection).ConfigureAwait(false);
 
             var dataNode = new JsonObject();
             if (unitsArray.Count > 0) dataNode["units"] = unitsArray;
             if (formationsArray.Count > 0) dataNode["formations"] = formationsArray;
             if (nationsArray.Count > 0) dataNode["nations"] = nationsArray;
-            if (dataNode.Count == 0) return null;
-
-            return new JsonObject { ["data"] = dataNode };
+            var rootNode = new JsonObject();
+            if (dataNode.Count > 0) rootNode["data"] = dataNode;
+            if (weaponsArray.Count > 0) rootNode["weapons"] = weaponsArray;
+            if (ammoArray.Count > 0) rootNode["ammo"] = ammoArray;
+            if (fireArray.Count > 0) rootNode["fireModes"] = fireArray;
+            if (tagObject.Count > 0) rootNode["weaponTags"] = tagObject;
+            return rootNode.Count == 0 ? null : rootNode;
         }
 
         public async Task<JsonArray> GetUnitsAsync()
@@ -161,6 +460,66 @@ ON CONFLICT(id) DO UPDATE SET payload = excluded.payload, updated_at = excluded.
             await using var connection = new SqliteConnection($"Data Source={_dbPath}");
             await connection.OpenAsync().ConfigureAwait(false);
             return await LoadNationsAsync(connection).ConfigureAwait(false);
+        }
+
+        public async Task<JsonArray> GetWeaponsAsync()
+        {
+            await InitializeAsync().ConfigureAwait(false);
+            await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+            await connection.OpenAsync().ConfigureAwait(false);
+            return await LoadWeaponsAsync(connection).ConfigureAwait(false);
+        }
+
+        public async Task SaveWeaponsAsync(JsonElement weaponsElement)
+        {
+            await InitializeAsync().ConfigureAwait(false);
+            var node = JsonNode.Parse(weaponsElement.GetRawText());
+            await RewriteWeaponsAsync(node).ConfigureAwait(false);
+        }
+
+        public async Task<JsonArray> GetAmmoTemplatesAsync()
+        {
+            await InitializeAsync().ConfigureAwait(false);
+            await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+            await connection.OpenAsync().ConfigureAwait(false);
+            return await LoadAmmoTemplatesAsync(connection).ConfigureAwait(false);
+        }
+
+        public async Task SaveAmmoTemplatesAsync(JsonElement ammoElement)
+        {
+            await InitializeAsync().ConfigureAwait(false);
+            var node = JsonNode.Parse(ammoElement.GetRawText());
+            await RewriteAmmoTemplatesAsync(node).ConfigureAwait(false);
+        }
+
+        public async Task<JsonArray> GetFireModeTemplatesAsync()
+        {
+            await InitializeAsync().ConfigureAwait(false);
+            await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+            await connection.OpenAsync().ConfigureAwait(false);
+            return await LoadFireModeTemplatesAsync(connection).ConfigureAwait(false);
+        }
+
+        public async Task SaveFireModeTemplatesAsync(JsonElement fireElement)
+        {
+            await InitializeAsync().ConfigureAwait(false);
+            var node = JsonNode.Parse(fireElement.GetRawText());
+            await RewriteFireModeTemplatesAsync(node).ConfigureAwait(false);
+        }
+
+        public async Task<JsonObject> GetWeaponTagsAsync()
+        {
+            await InitializeAsync().ConfigureAwait(false);
+            await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+            await connection.OpenAsync().ConfigureAwait(false);
+            return await LoadWeaponTagsAsync(connection).ConfigureAwait(false);
+        }
+
+        public async Task SaveWeaponTagsAsync(JsonElement tagsElement)
+        {
+            await InitializeAsync().ConfigureAwait(false);
+            var node = JsonNode.Parse(tagsElement.GetRawText());
+            await RewriteWeaponTagsAsync(node).ConfigureAwait(false);
         }
 
         public async Task DeleteUnitAsync(long unitId)
@@ -258,6 +617,205 @@ UPDATE formations SET nation_id = NULL;";
                             await updateCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
                         }
                     }
+                }
+            }
+
+            await sqliteTransaction.CommitAsync().ConfigureAwait(false);
+        }
+
+        private async Task RewriteWeaponsAsync(JsonNode? weaponsNode)
+        {
+            var normalized = PayloadNormalization.NormalizeWeaponCollection(weaponsNode);
+            await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+            await connection.OpenAsync().ConfigureAwait(false);
+            await using var transaction = await connection.BeginTransactionAsync().ConfigureAwait(false);
+            var sqliteTransaction = (SqliteTransaction)transaction;
+
+            var deleteCmd = connection.CreateCommand();
+            deleteCmd.Transaction = sqliteTransaction;
+            deleteCmd.CommandText = "DELETE FROM weapons;";
+            await deleteCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+            foreach (var entry in normalized)
+            {
+                if (entry is not JsonObject weaponObj) continue;
+                var weaponName = weaponObj.TryGetPropertyValue("name", out var nameNode) ? nameNode?.ToString() : null;
+                if (string.IsNullOrWhiteSpace(weaponName)) continue;
+
+                var payload = weaponObj.ToJsonString();
+                var insertCmd = connection.CreateCommand();
+                insertCmd.Transaction = sqliteTransaction;
+                insertCmd.CommandText = @"
+INSERT INTO weapons (name, category, caliber, range, muzzle_velocity, dispersion, barrel_length, reload_speed, metadata, payload)
+VALUES ($name, $category, $caliber, $range, $muzzle, $dispersion, $barrel, $reload, $metadata, $payload);";
+                insertCmd.Parameters.AddWithValue("$name", weaponName);
+                insertCmd.Parameters.AddWithValue("$category", ToDbValue(weaponObj["category"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$caliber", ToDbValue(weaponObj["caliber"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$range", ToNullableDouble(weaponObj["range"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$muzzle", ToNullableDouble(weaponObj["muzzleVelocity"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$dispersion", ToNullableDouble(weaponObj["dispersion"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$barrel", ToNullableDouble(weaponObj["barrelLength"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$reload", ToNullableDouble(weaponObj["reloadSpeed"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$metadata", payload);
+                insertCmd.Parameters.AddWithValue("$payload", payload);
+                await insertCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+
+            await sqliteTransaction.CommitAsync().ConfigureAwait(false);
+        }
+
+        private async Task RewriteAmmoTemplatesAsync(JsonNode? ammoNode)
+        {
+            var normalized = PayloadNormalization.NormalizeAmmoCollection(ammoNode);
+            await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+            await connection.OpenAsync().ConfigureAwait(false);
+            await using var transaction = await connection.BeginTransactionAsync().ConfigureAwait(false);
+            var sqliteTransaction = (SqliteTransaction)transaction;
+
+            var deleteCmd = connection.CreateCommand();
+            deleteCmd.Transaction = sqliteTransaction;
+            deleteCmd.CommandText = "DELETE FROM ammo_templates;";
+            await deleteCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+            foreach (var entry in normalized)
+            {
+                if (entry is not JsonObject ammoObj) continue;
+                var ammoName = ammoObj.TryGetPropertyValue("name", out var nameNode) ? nameNode?.ToString() : null;
+                var caliber = ammoObj.TryGetPropertyValue("caliber", out var caliberNode) ? caliberNode?.ToString() : null;
+                if (string.IsNullOrWhiteSpace(ammoName) || string.IsNullOrWhiteSpace(caliber)) continue;
+
+                var payload = ammoObj.ToJsonString();
+                var insertCmd = connection.CreateCommand();
+                insertCmd.Transaction = sqliteTransaction;
+                insertCmd.CommandText = @"
+INSERT INTO ammo_templates (
+    name,
+    caliber,
+    caliber_desc,
+    ammo_type,
+    ammo_per_soldier,
+    penetration,
+    he_deadliness,
+    dispersion,
+    range_mod,
+    grain,
+    notes,
+    airburst,
+    metadata,
+    sub_count,
+    sub_damage,
+    sub_penetration,
+    fps,
+    payload)
+VALUES (
+    $name,
+    $caliber,
+    $caliberDesc,
+    $ammoType,
+    $ammoPer,
+    $penetration,
+    $he,
+    $dispersion,
+    $rangeMod,
+    $grain,
+    $notes,
+    $airburst,
+    $metadata,
+    $subCount,
+    $subDamage,
+    $subPenetration,
+    $fps,
+    $payload);";
+                insertCmd.Parameters.AddWithValue("$name", ammoName);
+                insertCmd.Parameters.AddWithValue("$caliber", caliber);
+                insertCmd.Parameters.AddWithValue("$caliberDesc", ToDbValue(ammoObj["caliberDesc"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$ammoType", ToDbValue(ammoObj["ammoType"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$ammoPer", ToNullableDouble(ammoObj["ammoPerSoldier"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$penetration", ToNullableDouble(ammoObj["penetration"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$he", ToNullableDouble(ammoObj["heDeadliness"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$dispersion", ToNullableDouble(ammoObj["dispersion"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$rangeMod", ToNullableDouble(ammoObj["rangeMod"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$grain", ToNullableDouble(ammoObj["grain"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$notes", ToDbValue(ammoObj["notes"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$airburst", ToNullableBoolInt(ammoObj["airburst"]));
+                insertCmd.Parameters.AddWithValue("$metadata", payload);
+                insertCmd.Parameters.AddWithValue("$subCount", ToNullableDouble(ammoObj["subCount"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$subDamage", ToNullableDouble(ammoObj["subDamage"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$subPenetration", ToNullableDouble(ammoObj["subPenetration"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$fps", ToNullableDouble(ammoObj["fps"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$payload", payload);
+                await insertCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+
+            await sqliteTransaction.CommitAsync().ConfigureAwait(false);
+        }
+
+        private async Task RewriteFireModeTemplatesAsync(JsonNode? fireNode)
+        {
+            var normalized = PayloadNormalization.NormalizeFireModeCollection(fireNode);
+            await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+            await connection.OpenAsync().ConfigureAwait(false);
+            await using var transaction = await connection.BeginTransactionAsync().ConfigureAwait(false);
+            var sqliteTransaction = (SqliteTransaction)transaction;
+
+            var deleteCmd = connection.CreateCommand();
+            deleteCmd.Transaction = sqliteTransaction;
+            deleteCmd.CommandText = "DELETE FROM fire_mode_templates;";
+            await deleteCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+            foreach (var entry in normalized)
+            {
+                if (entry is not JsonObject fireObj) continue;
+                var name = fireObj.TryGetPropertyValue("name", out var nameNode) ? nameNode?.ToString() : null;
+                if (string.IsNullOrWhiteSpace(name)) continue;
+
+                var payload = fireObj.ToJsonString();
+                var insertCmd = connection.CreateCommand();
+                insertCmd.Transaction = sqliteTransaction;
+                insertCmd.CommandText = @"
+INSERT INTO fire_mode_templates (name, rounds, min_range, max_range, cooldown, ammo_ref, notes, payload)
+VALUES ($name, $rounds, $minRange, $maxRange, $cooldown, $ammoRef, $notes, $payload);";
+                insertCmd.Parameters.AddWithValue("$name", name);
+                insertCmd.Parameters.AddWithValue("$rounds", ToNullableDouble(fireObj["rounds"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$minRange", ToNullableDouble(fireObj["minRange"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$maxRange", ToNullableDouble(fireObj["maxRange"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$cooldown", ToNullableDouble(fireObj["cooldown"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$ammoRef", ToDbValue(fireObj["ammoRef"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$notes", ToDbValue(fireObj["notes"]?.ToString()));
+                insertCmd.Parameters.AddWithValue("$payload", payload);
+                await insertCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            }
+
+            await sqliteTransaction.CommitAsync().ConfigureAwait(false);
+        }
+
+        private async Task RewriteWeaponTagsAsync(JsonNode? tagsNode)
+        {
+            var normalized = PayloadNormalization.NormalizeWeaponTags(tagsNode);
+            await using var connection = new SqliteConnection($"Data Source={_dbPath}");
+            await connection.OpenAsync().ConfigureAwait(false);
+            await using var transaction = await connection.BeginTransactionAsync().ConfigureAwait(false);
+            var sqliteTransaction = (SqliteTransaction)transaction;
+
+            var deleteCmd = connection.CreateCommand();
+            deleteCmd.Transaction = sqliteTransaction;
+            deleteCmd.CommandText = "DELETE FROM weapon_tags;";
+            await deleteCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+
+            foreach (var scope in new[] { "categories", "calibers" })
+            {
+                if (normalized[scope] is not JsonObject scopeEntries) continue;
+                foreach (var kvp in scopeEntries)
+                {
+                    var color = kvp.Value?.ToString();
+                    if (string.IsNullOrWhiteSpace(kvp.Key) || string.IsNullOrWhiteSpace(color)) continue;
+                    var insertCmd = connection.CreateCommand();
+                    insertCmd.Transaction = sqliteTransaction;
+                    insertCmd.CommandText = "INSERT INTO weapon_tags (scope, name, color) VALUES ($scope, $name, $color);";
+                    insertCmd.Parameters.AddWithValue("$scope", scope);
+                    insertCmd.Parameters.AddWithValue("$name", kvp.Key);
+                    insertCmd.Parameters.AddWithValue("$color", color);
+                    await insertCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
                 }
             }
 
@@ -442,14 +1000,21 @@ VALUES ($unitId, $name, $type, $description, $notes, $quantity);";
             if (formationIdOverride.HasValue)
             {
                 cmd.CommandText = @"
-INSERT INTO formations (id, nation_id, name, description, image, created_at, updated_at)
-VALUES ($id, $nationId, $name, $description, $image,
+INSERT INTO formations (id, nation_id, name, description, role, hq_location, commander, readiness, strength_summary, support_assets, communications, image, created_at, updated_at)
+VALUES ($id, $nationId, $name, $description, $role, $hq, $commander, $readiness, $strengthSummary, $supportAssets, $communications, $image,
         COALESCE((SELECT created_at FROM formations WHERE id = $id), CURRENT_TIMESTAMP),
         CURRENT_TIMESTAMP)
 ON CONFLICT(id) DO UPDATE SET
     nation_id = excluded.nation_id,
     name = excluded.name,
     description = excluded.description,
+    role = excluded.role,
+    hq_location = excluded.hq_location,
+    commander = excluded.commander,
+    readiness = excluded.readiness,
+    strength_summary = excluded.strength_summary,
+    support_assets = excluded.support_assets,
+    communications = excluded.communications,
     image = excluded.image,
     updated_at = CURRENT_TIMESTAMP;";
                 cmd.Parameters.AddWithValue("$id", formationIdOverride.Value);
@@ -457,13 +1022,20 @@ ON CONFLICT(id) DO UPDATE SET
             else
             {
                 cmd.CommandText = @"
-INSERT INTO formations (nation_id, name, description, image, created_at, updated_at)
-VALUES ($nationId, $name, $description, $image, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);";
+INSERT INTO formations (nation_id, name, description, role, hq_location, commander, readiness, strength_summary, support_assets, communications, image, created_at, updated_at)
+VALUES ($nationId, $name, $description, $role, $hq, $commander, $readiness, $strengthSummary, $supportAssets, $communications, $image, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);";
             }
 
             cmd.Parameters.AddWithValue("$nationId", formation.GetPropertyOrDefault("nationId", (int?)null) ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("$name", formation.GetPropertyOrDefault("name", string.Empty));
             cmd.Parameters.AddWithValue("$description", formation.GetPropertyOrDefault("description", string.Empty) ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("$role", ToDbValue(formation.GetPropertyOrDefault("role", (string?)null)));
+            cmd.Parameters.AddWithValue("$hq", ToDbValue(formation.GetPropertyOrDefault("hqLocation", (string?)null)));
+            cmd.Parameters.AddWithValue("$commander", ToDbValue(formation.GetPropertyOrDefault("commander", (string?)null)));
+            cmd.Parameters.AddWithValue("$readiness", ToDbValue(formation.GetPropertyOrDefault("readiness", (string?)null)));
+            cmd.Parameters.AddWithValue("$strengthSummary", ToDbValue(formation.GetPropertyOrDefault("strengthSummary", (string?)null)));
+            cmd.Parameters.AddWithValue("$supportAssets", ToDbValue(formation.GetPropertyOrDefault("supportAssets", (string?)null)));
+            cmd.Parameters.AddWithValue("$communications", ToDbValue(formation.GetPropertyOrDefault("communications", (string?)null)));
             cmd.Parameters.AddWithValue("$image", formation.GetPropertyOrDefault("image", string.Empty) ?? (object)DBNull.Value);
             await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
 
@@ -488,15 +1060,10 @@ VALUES ($nationId, $name, $description, $image, CURRENT_TIMESTAMP, CURRENT_TIMES
                 }
             }
 
-            if (formation.TryGetProperty("subFormations", out var subs) && subs.ValueKind == JsonValueKind.Array)
+            foreach (var attachment in ExtractSubFormationLinks(formation))
             {
-                foreach (var sub in subs.EnumerateArray())
-                {
-                    if (sub.ValueKind == JsonValueKind.Number && sub.TryGetInt64(out var childId))
-                    {
-                        await InsertFormationChildAsync(connection, transaction, formationId, childId).ConfigureAwait(false);
-                    }
-                }
+                await InsertFormationChildAsync(connection, transaction, formationId, attachment.ChildId, attachment.Assignment, attachment.Strength, attachment.Notes, attachment.Readiness)
+                    .ConfigureAwait(false);
             }
         }
 
@@ -524,14 +1091,55 @@ VALUES ($formationId, $name, $sortOrder);";
             await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
         }
 
-        private static async Task InsertFormationChildAsync(SqliteConnection connection, SqliteTransaction transaction, long parentId, long childId)
+        private static async Task InsertFormationChildAsync(SqliteConnection connection, SqliteTransaction transaction, long parentId, long childId, string? assignment, string? strength, string? notes, string? readiness)
         {
             var cmd = connection.CreateCommand();
             cmd.Transaction = transaction;
-            cmd.CommandText = "INSERT INTO formation_children (parent_id, child_id) VALUES ($parent, $child);";
+            cmd.CommandText = "INSERT INTO formation_children (parent_id, child_id, assignment, strength, notes, readiness) VALUES ($parent, $child, $assignment, $strength, $notes, $readiness);";
             cmd.Parameters.AddWithValue("$parent", parentId);
             cmd.Parameters.AddWithValue("$child", childId);
+            cmd.Parameters.AddWithValue("$assignment", ToDbValue(assignment));
+            cmd.Parameters.AddWithValue("$strength", ToDbValue(strength));
+            cmd.Parameters.AddWithValue("$notes", ToDbValue(notes));
+            cmd.Parameters.AddWithValue("$readiness", ToDbValue(readiness));
             await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+        }
+
+        private static IEnumerable<(long ChildId, string? Assignment, string? Strength, string? Notes, string? Readiness)> ExtractSubFormationLinks(JsonElement formation)
+        {
+            if (formation.TryGetProperty("subFormationLinks", out var linkArray) && linkArray.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var link in linkArray.EnumerateArray())
+                {
+                    var childId = link.GetPropertyOrDefault("formationId", (long?)null)
+                                  ?? link.GetPropertyOrDefault("id", (long?)null)
+                                  ?? link.GetPropertyOrDefault("childId", (long?)null);
+                    if (!childId.HasValue) continue;
+                    yield return (
+                        childId.Value,
+                        link.GetPropertyOrDefault("assignment", (string?)null),
+                        link.GetPropertyOrDefault("strength", (string?)null),
+                        link.GetPropertyOrDefault("notes", (string?)null),
+                        link.GetPropertyOrDefault("readiness", (string?)null)
+                    );
+                }
+                yield break;
+            }
+
+            if (formation.TryGetProperty("subFormations", out var legacySubs) && legacySubs.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var sub in legacySubs.EnumerateArray())
+                {
+                    if (sub.ValueKind == JsonValueKind.Number && sub.TryGetInt64(out var childId))
+                    {
+                        yield return (childId, null, null, null, null);
+                    }
+                    else if (sub.ValueKind == JsonValueKind.String && long.TryParse(sub.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+                    {
+                        yield return (parsed, null, null, null, null);
+                    }
+                }
+            }
         }
 
         private static async Task<long> InsertNationAsync(SqliteConnection connection, SqliteTransaction transaction, JsonElement nation)
@@ -597,12 +1205,13 @@ VALUES ($gunId, $name, $type, $ammoPer, $penetration, $he, $dispersion, $rangeMo
             var cmd = connection.CreateCommand();
             cmd.Transaction = transaction;
             cmd.CommandText = @"
-INSERT INTO unit_gun_fire_modes (gun_id, name, rounds, burst_duration, cooldown, ammo_ref)
-VALUES ($gunId, $name, $rounds, $burst, $cooldown, $ammoRef);";
+INSERT INTO unit_gun_fire_modes (gun_id, name, rounds, min_range, max_range, cooldown, ammo_ref)
+VALUES ($gunId, $name, $rounds, $minRange, $maxRange, $cooldown, $ammoRef);";
             cmd.Parameters.AddWithValue("$gunId", gunId);
             cmd.Parameters.AddWithValue("$name", fire.GetPropertyOrDefault("name", string.Empty) ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("$rounds", fire.GetPropertyOrDefault("rounds", (int?)null) ?? (object)DBNull.Value);
-            cmd.Parameters.AddWithValue("$burst", fire.GetPropertyOrDefault("burstDuration", (double?)null) ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("$minRange", fire.GetPropertyOrDefault("minRange", (double?)null) ?? (object)DBNull.Value);
+            cmd.Parameters.AddWithValue("$maxRange", fire.GetPropertyOrDefault("maxRange", (double?)null) ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("$cooldown", fire.GetPropertyOrDefault("cooldown", (double?)null) ?? (object)DBNull.Value);
             cmd.Parameters.AddWithValue("$ammoRef", fire.GetPropertyOrDefault("ammoRef", string.Empty) ?? (object)DBNull.Value);
             await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
@@ -706,9 +1315,11 @@ DELETE FROM unit_equipment WHERE unit_id = $unitId;";
             var guns = new JsonArray();
             var cmd = connection.CreateCommand();
             cmd.CommandText =
-                "SELECT id, name, category, caliber, barrel_length, range, dispersion, count, ammo_per_soldier, total_ammo, magazine_size, reload_speed, target_acquisition FROM unit_guns WHERE unit_id = $id ORDER BY id;";
+                "SELECT id, name, category, caliber, barrel_length, range, dispersion, count, ammo_per_soldier, total_ammo, magazine_size, reload_speed, target_acquisition, trajectories, traits FROM unit_guns WHERE unit_id = $id ORDER BY id;";
             cmd.Parameters.AddWithValue("$id", unitId);
             await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+            var schema = reader.GetColumnSchema();
+            var ordinals = BuildColumnOrdinals(schema);
             while (await reader.ReadAsync().ConfigureAwait(false))
             {
                 var gunId = reader.GetInt64(0);
@@ -728,13 +1339,13 @@ DELETE FROM unit_equipment WHERE unit_id = $unitId;";
                     ["reloadSpeed"] = reader["reload_speed"] == DBNull.Value ? null : JsonValue.Create(reader["reload_speed"]),
                     ["targetAcquisition"] = reader["target_acquisition"] == DBNull.Value ? null : JsonValue.Create(reader["target_acquisition"])
                 };
-                if (reader["trajectories"] != DBNull.Value)
+                if (TryGetOrdinal(ordinals, "trajectories", out var trajectoriesOrdinal) && !reader.IsDBNull(trajectoriesOrdinal))
                 {
-                    gun["trajectories"] = JsonNode.Parse(reader["trajectories"]?.ToString() ?? "[]");
+                    gun["trajectories"] = JsonNode.Parse(reader.GetString(trajectoriesOrdinal) ?? "[]");
                 }
-                if (reader["traits"] != DBNull.Value)
+                if (TryGetOrdinal(ordinals, "traits", out var traitsOrdinal) && !reader.IsDBNull(traitsOrdinal))
                 {
-                    gun["traits"] = JsonNode.Parse(reader["traits"]?.ToString() ?? "[]");
+                    gun["traits"] = JsonNode.Parse(reader.GetString(traitsOrdinal) ?? "[]");
                 }
 
                 var ammo = await LoadGunAmmoAsync(connection, gunId).ConfigureAwait(false);
@@ -784,7 +1395,7 @@ DELETE FROM unit_equipment WHERE unit_id = $unitId;";
             var fireArray = new JsonArray();
             var cmd = connection.CreateCommand();
             cmd.CommandText =
-                "SELECT name, rounds, burst_duration, cooldown, ammo_ref FROM unit_gun_fire_modes WHERE gun_id = $id ORDER BY id;";
+                "SELECT name, rounds, min_range, max_range, cooldown, ammo_ref FROM unit_gun_fire_modes WHERE gun_id = $id ORDER BY id;";
             cmd.Parameters.AddWithValue("$id", gunId);
             await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
             while (await reader.ReadAsync().ConfigureAwait(false))
@@ -793,7 +1404,8 @@ DELETE FROM unit_equipment WHERE unit_id = $unitId;";
                 {
                     ["name"] = reader["name"]?.ToString(),
                     ["rounds"] = reader["rounds"] == DBNull.Value ? null : JsonValue.Create(reader["rounds"]),
-                    ["burstDuration"] = reader["burst_duration"] == DBNull.Value ? null : JsonValue.Create(reader["burst_duration"]),
+                    ["minRange"] = reader["min_range"] == DBNull.Value ? null : JsonValue.Create(reader["min_range"]),
+                    ["maxRange"] = reader["max_range"] == DBNull.Value ? null : JsonValue.Create(reader["max_range"]),
                     ["cooldown"] = reader["cooldown"] == DBNull.Value ? null : JsonValue.Create(reader["cooldown"]),
                     ["ammoRef"] = reader["ammo_ref"]?.ToString()
                 };
@@ -807,7 +1419,7 @@ DELETE FROM unit_equipment WHERE unit_id = $unitId;";
         {
             var formations = new JsonArray();
             var cmd = connection.CreateCommand();
-            cmd.CommandText = "SELECT id, nation_id, name, description, image FROM formations ORDER BY id;";
+            cmd.CommandText = "SELECT id, nation_id, name, description, role, hq_location, commander, readiness, strength_summary, support_assets, communications, image FROM formations ORDER BY id;";
             await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
             while (await reader.ReadAsync().ConfigureAwait(false))
             {
@@ -818,6 +1430,13 @@ DELETE FROM unit_equipment WHERE unit_id = $unitId;";
                     ["nationId"] = reader["nation_id"] == DBNull.Value ? null : JsonValue.Create(Convert.ToInt32(reader["nation_id"])),
                     ["name"] = reader["name"]?.ToString(),
                     ["description"] = reader["description"]?.ToString(),
+                    ["role"] = reader["role"]?.ToString(),
+                    ["hqLocation"] = reader["hq_location"]?.ToString(),
+                    ["commander"] = reader["commander"]?.ToString(),
+                    ["readiness"] = reader["readiness"]?.ToString(),
+                    ["strengthSummary"] = reader["strength_summary"]?.ToString(),
+                    ["supportAssets"] = reader["support_assets"]?.ToString(),
+                    ["communications"] = reader["communications"]?.ToString(),
                     ["image"] = reader["image"]?.ToString()
                 };
 
@@ -826,6 +1445,9 @@ DELETE FROM unit_equipment WHERE unit_id = $unitId;";
 
                 var subFormations = await LoadFormationChildrenAsync(connection, formationId).ConfigureAwait(false);
                 if (subFormations.Count > 0) formation["subFormations"] = subFormations;
+
+                var subLinks = await LoadFormationChildLinksAsync(connection, formationId).ConfigureAwait(false);
+                if (subLinks.Count > 0) formation["subFormationLinks"] = subLinks;
 
                 formations.Add(formation);
             }
@@ -888,6 +1510,28 @@ DELETE FROM unit_equipment WHERE unit_id = $unitId;";
             return array;
         }
 
+        private static async Task<JsonArray> LoadFormationChildLinksAsync(SqliteConnection connection, long parentId)
+        {
+            var array = new JsonArray();
+            var cmd = connection.CreateCommand();
+            cmd.CommandText = "SELECT child_id, assignment, strength, notes, readiness FROM formation_children WHERE parent_id = $id ORDER BY id;";
+            cmd.Parameters.AddWithValue("$id", parentId);
+            await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+            while (await reader.ReadAsync().ConfigureAwait(false))
+            {
+                var link = new JsonObject
+                {
+                    ["formationId"] = Convert.ToInt64(reader["child_id"])
+                };
+                if (reader["assignment"] != DBNull.Value) link["assignment"] = reader["assignment"]?.ToString();
+                if (reader["strength"] != DBNull.Value) link["strength"] = reader["strength"]?.ToString();
+                if (reader["notes"] != DBNull.Value) link["notes"] = reader["notes"]?.ToString();
+                if (reader["readiness"] != DBNull.Value) link["readiness"] = reader["readiness"]?.ToString();
+                array.Add(link);
+            }
+            return array;
+        }
+
         private static async Task<JsonArray> LoadNationsAsync(SqliteConnection connection)
         {
             var nations = new JsonArray();
@@ -923,6 +1567,165 @@ DELETE FROM unit_equipment WHERE unit_id = $unitId;";
                 array.Add(Convert.ToInt64(reader["id"]));
             }
             return array;
+        }
+
+        private static async Task<JsonArray> LoadWeaponsAsync(SqliteConnection connection)
+        {
+            var array = new JsonArray();
+            var (hasMetadataColumn, hasPayloadColumn) = await GetWeaponColumnStateAsync(connection).ConfigureAwait(false);
+            var metadataExpr = hasMetadataColumn ? "metadata" : hasPayloadColumn ? "payload" : "NULL";
+            var payloadExpr = hasPayloadColumn ? "payload" : "NULL";
+
+            var cmd = connection.CreateCommand();
+            cmd.CommandText = $"SELECT id, name, category, caliber, range, muzzle_velocity, dispersion, barrel_length, reload_speed, {metadataExpr} AS metadata_blob, {payloadExpr} AS payload_blob FROM weapons ORDER BY name;";
+            await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+            var metadataOrdinal = reader.GetOrdinal("metadata_blob");
+            var payloadOrdinal = reader.GetOrdinal("payload_blob");
+
+            while (await reader.ReadAsync().ConfigureAwait(false))
+            {
+                JsonObject weapon;
+                var metadataSource = !reader.IsDBNull(metadataOrdinal) ? reader.GetString(metadataOrdinal) : (!reader.IsDBNull(payloadOrdinal) ? reader.GetString(payloadOrdinal) : null);
+                if (!string.IsNullOrWhiteSpace(metadataSource))
+                {
+                    try
+                    {
+                        weapon = JsonNode.Parse(metadataSource) as JsonObject ?? new JsonObject();
+                    }
+                    catch
+                    {
+                        weapon = new JsonObject();
+                    }
+                }
+                else
+                {
+                    weapon = new JsonObject();
+                }
+
+                weapon["id"] = reader.GetInt64(0);
+                if (!reader.IsDBNull(1)) weapon["name"] = reader.GetString(1);
+                if (!reader.IsDBNull(2)) weapon["category"] = reader.GetString(2);
+                if (!reader.IsDBNull(3)) weapon["caliber"] = reader.GetString(3);
+                if (!reader.IsDBNull(4)) weapon["range"] = reader.GetDouble(4);
+                if (!reader.IsDBNull(5)) weapon["muzzleVelocity"] = reader.GetDouble(5);
+                if (!reader.IsDBNull(6)) weapon["dispersion"] = reader.GetDouble(6);
+                if (!reader.IsDBNull(7)) weapon["barrelLength"] = reader.GetDouble(7);
+                if (!reader.IsDBNull(8)) weapon["reloadSpeed"] = reader.GetDouble(8);
+                array.Add(weapon);
+            }
+            return array;
+        }
+
+        private static async Task<JsonArray> LoadAmmoTemplatesAsync(SqliteConnection connection)
+        {
+            var array = new JsonArray();
+            var cmd = connection.CreateCommand();
+            cmd.CommandText = @"SELECT id, name, caliber, caliber_desc, ammo_type, ammo_per_soldier, penetration, he_deadliness, dispersion, range_mod, grain, notes, airburst, metadata, sub_count, sub_damage, sub_penetration, fps, payload FROM ammo_templates ORDER BY caliber, name;";
+            await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+            while (await reader.ReadAsync().ConfigureAwait(false))
+            {
+                JsonObject template = new JsonObject();
+                var metadataSource = !reader.IsDBNull(13) ? reader.GetString(13) : (!reader.IsDBNull(18) ? reader.GetString(18) : null);
+                if (!string.IsNullOrWhiteSpace(metadataSource))
+                {
+                    try
+                    {
+                        template = JsonNode.Parse(metadataSource) as JsonObject ?? template;
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
+                }
+
+                template["id"] = reader.GetInt64(0);
+                if (!reader.IsDBNull(1)) template["name"] = reader.GetString(1);
+                if (!reader.IsDBNull(2)) template["caliber"] = reader.GetString(2);
+                if (!reader.IsDBNull(3)) template["caliberDesc"] = reader.GetString(3);
+                if (!reader.IsDBNull(4)) template["ammoType"] = reader.GetString(4);
+                if (!reader.IsDBNull(5)) template["ammoPerSoldier"] = reader.GetDouble(5);
+                if (!reader.IsDBNull(6)) template["penetration"] = reader.GetDouble(6);
+                if (!reader.IsDBNull(7)) template["heDeadliness"] = reader.GetDouble(7);
+                if (!reader.IsDBNull(8)) template["dispersion"] = reader.GetDouble(8);
+                if (!reader.IsDBNull(9)) template["rangeMod"] = reader.GetDouble(9);
+                if (!reader.IsDBNull(10)) template["grain"] = reader.GetDouble(10);
+                if (!reader.IsDBNull(11)) template["notes"] = reader.GetString(11);
+                if (!reader.IsDBNull(12)) template["airburst"] = reader.GetInt32(12) == 1;
+                if (!reader.IsDBNull(14)) template["subCount"] = reader.GetDouble(14);
+                if (!reader.IsDBNull(15)) template["subDamage"] = reader.GetDouble(15);
+                if (!reader.IsDBNull(16)) template["subPenetration"] = reader.GetDouble(16);
+                if (!reader.IsDBNull(17)) template["fps"] = reader.GetDouble(17);
+                array.Add(template);
+            }
+            return array;
+        }
+
+        private static async Task<JsonArray> LoadFireModeTemplatesAsync(SqliteConnection connection)
+        {
+            var array = new JsonArray();
+            var cmd = connection.CreateCommand();
+            cmd.CommandText = @"SELECT id, name, rounds, min_range, max_range, cooldown, ammo_ref, notes, payload FROM fire_mode_templates ORDER BY name;";
+            await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+            while (await reader.ReadAsync().ConfigureAwait(false))
+            {
+                JsonObject template = new JsonObject();
+                var payloadSource = !reader.IsDBNull(8) ? reader.GetString(8) : null;
+                if (!string.IsNullOrWhiteSpace(payloadSource))
+                {
+                    try
+                    {
+                        template = JsonNode.Parse(payloadSource) as JsonObject ?? template;
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
+                }
+
+                template["id"] = reader.GetInt64(0);
+                if (!reader.IsDBNull(1)) template["name"] = reader.GetString(1);
+                if (!reader.IsDBNull(2)) template["rounds"] = reader.GetDouble(2);
+                if (!reader.IsDBNull(3)) template["minRange"] = reader.GetDouble(3);
+                if (!reader.IsDBNull(4)) template["maxRange"] = reader.GetDouble(4);
+                if (!reader.IsDBNull(5)) template["cooldown"] = reader.GetDouble(5);
+                if (!reader.IsDBNull(6)) template["ammoRef"] = reader.GetString(6);
+                if (!reader.IsDBNull(7)) template["notes"] = reader.GetString(7);
+                array.Add(template);
+            }
+            return array;
+        }
+
+        private static async Task<JsonObject> LoadWeaponTagsAsync(SqliteConnection connection)
+        {
+            var result = new JsonObject
+            {
+                ["categories"] = new JsonObject(),
+                ["calibers"] = new JsonObject()
+            };
+
+            var cmd = connection.CreateCommand();
+            cmd.CommandText = "SELECT scope, name, color FROM weapon_tags ORDER BY scope, name;";
+            await using var reader = await cmd.ExecuteReaderAsync().ConfigureAwait(false);
+            while (await reader.ReadAsync().ConfigureAwait(false))
+            {
+                var scope = reader.IsDBNull(0) ? string.Empty : reader.GetString(0);
+                var name = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+                var color = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
+                if (string.IsNullOrWhiteSpace(scope) || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(color))
+                {
+                    continue;
+                }
+
+                var key = scope.Equals("calibers", StringComparison.OrdinalIgnoreCase) ? "calibers" : "categories";
+                if (result[key] is not JsonObject bucket)
+                {
+                    bucket = new JsonObject();
+                    result[key] = bucket;
+                }
+                bucket[name] = color;
+            }
+
+            return result;
         }
 
         private static async Task<JsonArray> LoadArrayAsync(SqliteConnection connection, string sql, long unitId)
@@ -987,6 +1790,74 @@ DELETE FROM unit_equipment WHERE unit_id = $unitId;";
             caps["sprint"] = sprint;
             return caps;
         }
+
+        private static object ToDbValue(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? DBNull.Value : value;
+        }
+
+        private static object ToNullableDouble(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return DBNull.Value;
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+            {
+                return parsed;
+            }
+            return DBNull.Value;
+        }
+
+        private static object ToNullableBoolInt(JsonNode? node)
+        {
+            if (node == null) return DBNull.Value;
+            if (node is JsonValue jsonValue)
+            {
+                if (jsonValue.TryGetValue<bool>(out var boolValue))
+                {
+                    return boolValue ? 1 : 0;
+                }
+
+                if (jsonValue.TryGetValue<int>(out var intValue))
+                {
+                    return intValue;
+                }
+            }
+
+            if (bool.TryParse(node.ToString(), out var parsedBool))
+            {
+                return parsedBool ? 1 : 0;
+            }
+
+            if (int.TryParse(node.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedInt))
+            {
+                return parsedInt;
+            }
+
+            return DBNull.Value;
+        }
+
+        private static IReadOnlyDictionary<string, int> BuildColumnOrdinals(IReadOnlyList<DbColumn> schema)
+        {
+            var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var column in schema)
+            {
+                if (!string.IsNullOrWhiteSpace(column.ColumnName) && column.ColumnOrdinal.HasValue)
+                {
+                    map[column.ColumnName] = column.ColumnOrdinal.Value;
+                }
+            }
+            return map;
+        }
+
+        private static bool TryGetOrdinal(IReadOnlyDictionary<string, int> ordinals, string columnName, out int ordinal)
+        {
+            if (ordinals.TryGetValue(columnName, out var value))
+            {
+                ordinal = value;
+                return true;
+            }
+            ordinal = -1;
+            return false;
+        }
     }
 
     internal static class JsonElementExtensions
@@ -1010,6 +1881,24 @@ DELETE FROM unit_equipment WHERE unit_id = $unitId;";
                 }
 
                 if (value.ValueKind == JsonValueKind.String && int.TryParse(value.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed))
+                {
+                    return parsed;
+                }
+            }
+
+            return fallback;
+        }
+
+        public static long? GetPropertyOrDefault(this JsonElement element, string propertyName, long? fallback)
+        {
+            if (element.TryGetProperty(propertyName, out var value))
+            {
+                if (value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out var result))
+                {
+                    return result;
+                }
+
+                if (value.ValueKind == JsonValueKind.String && long.TryParse(value.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed))
                 {
                     return parsed;
                 }

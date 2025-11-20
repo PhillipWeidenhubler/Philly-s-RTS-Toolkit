@@ -11,7 +11,7 @@ npm run dev     # start Vite dev server
 npm run build   # emit production bundle to dist/
 ```
 
-The C# WebView will eventually load the `dist/` output. During development you can attach the WebView to the dev server or use the static `frontend/legacy` copy for comparison.
+The C# WebView loads the built `dist/` output. During development you can attach the WebView to the Vite dev server, but production builds always come from `dist/`.
 
 ### Host Bridge
 The placeholder `src/main.ts` illustrates how to talk to the WebView host via `window.chrome.webview.postMessage`. The desktop app responds to:

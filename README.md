@@ -18,152 +18,101 @@ Philly's RTS Toolkit is a hybrid web-desktop application built with C# and HTML/
 ### Unit Management
 - **Comprehensive Unit Editor**: Create units with detailed attributes including:
   - Basic info (name, cost, category, tier, description)
-  - Combat stats (armor, health, squad size, visual range)
-  - Movement stats (speed, stealth, weight)
-  - Equipment and capabilities (grenades, special abilities)
-  - Weapon loadouts with ammunition types
-- **Unit Browser**: Search, filter, and sort units by various criteria
-- **Visual Statcards**: Generate professional-looking unit cards with all relevant information
+  # Philly's RTS Toolkit
 
-### Weapon & Ammunition System
-- **Weapon Library**: Maintain a reusable library of weapons with:
-  - Caliber, range, and category
-  - Ballistics (muzzle velocity, dispersion, barrel length)
-  - Fire modes and reload speeds
-  - Custom color-coded tags
-- **Ammunition Editor**: Define ammunition types with:
-  - Penetration and HE values
-  - Range and dispersion modifiers
-  - Grain weight and special notes
+  A next-generation desktop authoring environment for creating, managing, and visualizing RTS unit statcards. The application pairs a C# WinForms/WebView2 host (with SQLite persistence) and a modern Vite + TypeScript + SCSS frontend.
 
-### Organization & Hierarchy
-- **Formation Editor**: Group units into tactical formations with categories
-- **Nation Builder**: Create nations composed of multiple formations
-- **Visual Overview**: View aggregated statistics for formations and nations
+  ## Highlights
 
-### Data Management
-- **JSON Import/Export**: Save and load complete datasets
-- **Sample Data**: Quick-start with pre-loaded example units
-- **Persistent Storage**: Local database for weapons, ammo, and unit data
-- **Export Options**: Generate PNG images of statcards or print directly
+  - **Unit Designer** – Rich editor for unit metadata, combat stats, capabilities, and equipment.
+  - **Weapon & Ammo Library** – Manage reusable weapon templates, ammo definitions, and fire modes with automatic ballistic helpers.
+  - **Formations & Nations** – Compose higher-order organizations and view aggregate stats.
+  - **Analytics** – Stats dashboard, upcoming charting modules, and planned export pipelines.
+  - **Persistent Storage** – SQLite mirrors all payload data while JSON backups (`database/*.json`) remain available for import/export.
 
-### User Interface
-- **Multiple Themes**: Choose from Aero Blue, Midnight Violet, Emerald, or High Contrast
-- **Modern UI**: Glass-morphism design with responsive layout
-- **Fullscreen Mode**: Press F11 for distraction-free editing
-- **Statistics Dashboard**: Performance radar charts and top unit rankings
+  ## Prerequisites
 
-## Getting Started
+  - Windows 10/11
+  - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+  - [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
+  - [Node.js 18+](https://nodejs.org/) for the Vite build
 
-### Prerequisites
+  ## Setup & Run
 
-- **Windows** (Windows 10 or later recommended)
-- **.NET 8.0 SDK or Runtime** - [Download here](https://dotnet.microsoft.com/download/dotnet/8.0)
-- **WebView2 Runtime** - Usually pre-installed on Windows 10/11, or [download here](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
+  ```bash
+  # Clone the repo
+  git clone https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit.git
+  cd Philly-s-RTS-Toolkit
 
-### Installation
+  # Install frontend deps (one-time)
+  cd next-gen/frontend/app
+  npm install
+  cd ../../..
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit.git
-   cd Philly-s-RTS-Toolkit
-   ```
+  # Build frontend + desktop host, then launch
+  run_next_gen.bat
+  ```
 
-2. **Run the toolkit**:
-   
-   **Option A - Using the batch file (Easiest)**:
-   ```bash
-   run_toolkit.bat
-   ```
-   This will automatically build and launch the application.
+  `run_next_gen.bat` executes `npm run build` inside `next-gen/frontend/app`, then compiles and starts `next-gen/desktop/PhillyRTSToolkit.csproj`. Re-run the script whenever you change frontend assets or the desktop host.
 
-   **Option B - Manual build**:
-   ```bash
-   cd desktop
-   dotnet build PhillyRTSToolkit.csproj -c Release
-   cd bin/Release/net8.0-windows
-   ./PhillyRTSToolkit.exe
-   ```
+  ### Manual workflow
 
-### First Launch
+  ```bash
+  # Frontend development
+  cd next-gen/frontend/app
+  npm run dev          # Vite dev server
+  npm run build        # Production bundle -> dist/
 
-When you first open the toolkit:
+  # Desktop host (in another terminal)
+  cd ../../desktop
+  dotnet run --project PhillyRTSToolkit.csproj -c Release
+  ```
 
-1. Click **"Load sample data"** to get started with example units
-2. Explore the different editors using the navigation buttons on the left
-3. Try rendering statcards by clicking **"Render statcards"**
-4. Experiment with the theme selector in the settings panel
+  The desktop host always serves `next-gen/frontend/app/dist/index.html`. Ensure the bundle exists (via `npm run build`) before launching the C# project.
 
-## Usage
+  ## Project Structure
 
-### Creating Your First Unit
+  ```
+  Philly-s-RTS-Toolkit/
+  ├── database/                  # JSON backups (state.json, units.json, formations.json, ...)
+  ├── next-gen/
+  │   ├── desktop/               # WinForms/WebView2 host + SQLite layer
+  │   │   ├── MainForm.cs
+  │   │   ├── DatabaseService.cs
+  │   │   └── database/          # schema.sql, rts.db, seed files
+  │   └── frontend/
+  │       └── app/               # Vite + TS + SCSS workspace
+  │           ├── src/           # Modules, services, styles
+  │           └── dist/          # Built assets consumed by the host
+  ├── run_next_gen.bat          # Convenience build+run script
+  └── README.md
+  ```
 
-1. Click the **"Unit"** editor button in the navigation panel
-2. Click **"Add new unit"** at the bottom of the editor
-3. Fill in the basic information:
-   - Unit name (e.g., "Alpha Squad")
-   - Cost in points
-   - Category (e.g., "Infantry")
-   - Stats (armor, health, speed, etc.)
-4. Add weapons using the **"Add weapon"** button
-5. Click **"Save Unit"** to store your changes
-6. Click **"Render statcards"** to visualize your unit
+  ## Development Notes
 
-### Working with Weapons
+  - WebView messages follow `{ type, payload }` envelopes. Desktop handlers live in `next-gen/desktop/MainForm.cs`; TypeScript services reside in `next-gen/frontend/app/src/services`.
+  - SQLite schema + data access live under `next-gen/desktop/database`. Keep schema changes, `DatabaseService`, and frontend types (`next-gen/frontend/app/src/types`) synchronized.
+  - The host persists payload snapshots to SQLite and rewrites JSON backups for external tooling. Guard against missing arrays when mutating payload sections.
+  - Use `npm run dev` for rapid frontend iteration. The WinForms host can be pointed at the dev server if needed, but production builds always ship the static `dist/` output.
 
-1. Navigate to the **"Weapon"** editor
-2. Click **"Add new weapon"** to create a new weapon template
-3. Define the weapon's properties (caliber, range, fire modes, etc.)
-4. Save the weapon - it will be available in the unit editor's weapon library
-5. Use the import/export buttons to share weapon libraries
+  ## Contributing
 
-### Building Formations and Nations
+  1. Update/extend shared types in `next-gen/frontend/app/src/types`.
+  2. Add or adjust WebView message handling + persistence in `next-gen/desktop`.
+  3. Wire new UI modules/services inside `next-gen/frontend/app/src/modules`.
+  4. Run `npm run build` followed by `run_next_gen.bat` (or rebuild manually) before opening a PR.
 
-1. Create units first (see above)
-2. Open the **"Formation"** editor
-3. Add a new formation and assign units to categories
-4. Save the formation
-5. Open the **"Nation"** editor
-6. Create a nation and assign formations to it
-7. View aggregated statistics in the **"Nation"** overview
+  Issues and pull requests are welcome! Please describe the problem, environment, and repro steps when filing bugs.
 
-### Data Management
+  ## License & Credits
 
-- **Save your work**: Click **"Save JSON"** to export all data
-- **Load data**: Click **"Load JSON"** to import previously saved data
-- **Export individual nations**: Use the nation overview export button
-- **Export statcards**: Use **"Export cards PNG"** to save images
+  - Developed by Phillip Weidenhubler.
+  - Built with .NET 8, WebView2, SQLite, Vite, TypeScript, and SCSS.
+  - Third-party libraries retain their original licenses; see the respective packages for details.
 
-## Project Structure
+  ---
 
-```
-Philly-s-RTS-Toolkit/
-├── database/           # JSON data files (units, formations, weapons, etc.)
-├── desktop/           # C# Windows Forms application
-│   ├── MainForm.cs    # Main application window with WebView2
-│   ├── Program.cs     # Application entry point
-│   └── PhillyRTSToolkit.csproj
-├── libs/              # JavaScript libraries (Chart.js, html2canvas)
-├── index.html         # Main web interface
-├── script.js          # Application logic
-├── style.css          # Styling and themes
-└── run_toolkit.bat    # Quick launch script
-```
-
-## Development
-
-### Technology Stack
-
-- **Backend**: C# with .NET 8.0 and Windows Forms
-- **Frontend**: HTML5, CSS3, Vanilla JavaScript
-- **Rendering**: Microsoft WebView2 (Chromium-based)
-- **Charting**: Chart.js for radar diagrams
-- **Export**: html2canvas for PNG generation
-
-### Building from Source
-
-```bash
-# Navigate to the desktop project
+  **Note:** The legacy WinForms/HTML toolkit has been removed from this repository. Retrieve it from earlier tags/commits if you need historical assets.
 cd desktop
 
 # Restore dependencies

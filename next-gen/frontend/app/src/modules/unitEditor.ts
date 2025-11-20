@@ -1,9 +1,27 @@
-import type { Equipment, Gun, GunAmmo, GunFireMode, Unit, UnitGrenades, UnitStats } from "../types";
+import type {
+  Equipment,
+  Gun,
+  GunAmmo,
+  GunFireMode,
+  Unit,
+  UnitGrenades,
+  UnitStats,
+  WeaponTagMap,
+} from "../types";
 import { deepClone } from "../lib/helpers";
 import { unitService } from "../services/unitService";
 import { formationService } from "../services/formationService";
 import { nationService } from "../services/nationService";
 import { settingsService } from "../services/settingsService";
+import { weaponLibraryService } from "../services/weaponLibraryService";
+import { ammoLibraryService } from "../services/ammoLibraryService";
+import { fireModeTemplateService } from "../services/fireModeTemplateService";
+import { weaponTagService } from "../services/weaponTagService";
+import {
+  HEAVY_TRAIT_VALUES,
+  TRAJECTORY_OPTIONS,
+  WEAPON_TRAIT_GROUPS,
+} from "../config/weaponOptions";
 
 const createBlankUnit = (): Unit => ({
   name: "",
@@ -43,6 +61,10 @@ export class UnitEditor {
   private equipmentListEl!: HTMLElement;
   private statusEl!: HTMLElement;
   private summaryEl!: HTMLElement;
+  private speedInputEl?: HTMLInputElement | null;
+  private speedHintEl?: HTMLElement | null;
+  private grenadeInputs: HTMLInputElement[] = [];
+  private grenadeTotalInput?: HTMLInputElement | null;
   private searchInput!: HTMLInputElement;
   private categoryFilter!: HTMLSelectElement;
   private sortModeSelect!: HTMLSelectElement;
@@ -53,9 +75,16 @@ export class UnitEditor {
   private metaFormationsEl: HTMLElement | null = null;
   private metaNationsEl: HTMLElement | null = null;
   private metaThemeEl: HTMLElement | null = null;
+  private unitCategoryTagListEl: HTMLDataListElement | null = null;
+  private unitCaliberTagListEl: HTMLDataListElement | null = null;
   private ammoTemplates: GunAmmo[] = [];
   private fireTemplates: GunFireMode[] = [];
   private ammoLibraryByCaliber = new Map<string, GunAmmo[]>();
+  private weaponTemplates: Gun[] = [];
+  private hostAmmoTemplates: GunAmmo[] = [];
+  private hostFireTemplates: GunFireMode[] = [];
+  private fireLibraryTemplates: GunFireMode[] = [];
+  private weaponTags: WeaponTagMap = { categories: {}, calibers: {} };
 
   constructor(root: HTMLElement) {
     this.root = root;
@@ -66,6 +95,30 @@ export class UnitEditor {
     this.cacheElements();
     this.bindEvents();
     this.bindMetaFeeds();
+    weaponLibraryService.subscribe((weapons) => {
+      this.weaponTemplates = deepClone(weapons);
+      this.hostFireTemplates = this.weaponTemplates.flatMap((weapon) => weapon.fireModes || []);
+      this.updateTemplateLibraries(this.units);
+    });
+    weaponLibraryService.loadWeapons().catch(() => undefined);
+
+    ammoLibraryService.subscribe((templates) => {
+      this.hostAmmoTemplates = deepClone(templates);
+      this.updateTemplateLibraries(this.units);
+    });
+    ammoLibraryService.loadTemplates().catch(() => undefined);
+
+    fireModeTemplateService.subscribe((templates) => {
+      this.fireLibraryTemplates = deepClone(templates);
+      this.updateTemplateLibraries(this.units);
+    });
+    fireModeTemplateService.loadTemplates().catch(() => undefined);
+
+    weaponTagService.subscribe((tags) => {
+      this.weaponTags = tags;
+      this.renderWeaponTagDatalists();
+    });
+    weaponTagService.loadTags().catch(() => undefined);
 
     unitService.subscribe((units) => {
       this.units = units;
@@ -92,7 +145,6 @@ export class UnitEditor {
             <div>
               <p class="eyebrow">SQLite source</p>
               <h1>Unit Browser</h1>
-              <p class="muted">Select an existing unit or start a fresh draft.</p>
             </div>
             <button type="button" class="ghost" data-action="refresh-units">Refresh</button>
           </header>
@@ -121,7 +173,7 @@ export class UnitEditor {
           <header class="editor-header">
             <div>
               <p class="eyebrow">Unit Editor</p>
-              <h2>Combat Design Suite</h2>
+              <h2>Unit Designer</h2>
               <p class="muted" data-role="unit-summary">Select a unit to begin.</p>
             </div>
             <div class="editor-actions">
@@ -132,6 +184,8 @@ export class UnitEditor {
           </header>
           <form id="unitForm" data-role="unit-form" class="editor-form">
             <input type="hidden" name="unit-id" />
+            <datalist id="unit-category-tags" data-role="unit-category-tags"></datalist>
+            <datalist id="unit-caliber-tags" data-role="unit-caliber-tags"></datalist>
             <section class="panel grid-3">
               <div class="field">
                 <label>Name</label>
@@ -165,12 +219,18 @@ export class UnitEditor {
             <section class="panel">
               <div class="panel-title">Core stats</div>
               <div class="core-stats-grid">
-                <div class="field"><label>Armor (mm)</label><input name="stats.armor" type="number" step="0.1" /></div>
+                <div class="field"><label>Armor (rating)</label><input name="stats.armor" type="number" step="0.1" /></div>
                 <div class="field"><label>Health (HP)</label><input name="stats.health" type="number" step="0.1" /></div>
                 <div class="field"><label>Squad size (#)</label><input name="stats.squadSize" type="number" step="1" min="0" /></div>
                 <div class="field"><label>Visual range (m)</label><input name="stats.visualRange" type="number" step="1" min="0" /></div>
                 <div class="field"><label>Stealth (%)</label><input name="stats.stealth" type="number" step="1" min="0" /></div>
-                <div class="field"><label>Speed (m/s)</label><input name="stats.speed" type="number" step="0.1" /></div>
+                <div class="field speed-field">
+                  <label>Speed (m/s)</label>
+                  <div class="input-with-hint">
+                    <input name="stats.speed" type="number" step="0.1" data-role="speed-input" />
+                    <span class="unit-hint" data-role="speed-kph">0 km/h</span>
+                  </div>
+                </div>
                 <div class="field"><label>Weight (kg)</label><input name="stats.weight" type="number" step="0.1" /></div>
               </div>
             </section>
@@ -215,11 +275,14 @@ export class UnitEditor {
             </section>
             <section class="panel grid-5">
               <div class="panel-title">Grenades</div>
-              <div class="field"><label>Smoke</label><input name="grenades.smoke" type="number" step="1" min="0" /></div>
-              <div class="field"><label>Flash</label><input name="grenades.flash" type="number" step="1" min="0" /></div>
-              <div class="field"><label>Thermite</label><input name="grenades.thermite" type="number" step="1" min="0" /></div>
-              <div class="field"><label>Frag</label><input name="grenades.frag" type="number" step="1" min="0" /></div>
-              <div class="field"><label>Total</label><input name="grenades.total" type="number" step="1" min="0" /></div>
+              <div class="field"><label>Smoke (qty)</label><input name="grenades.smoke" type="number" step="1" min="0" data-role="grenade-input" /></div>
+              <div class="field"><label>Flash (qty)</label><input name="grenades.flash" type="number" step="1" min="0" data-role="grenade-input" /></div>
+              <div class="field"><label>Thermite (qty)</label><input name="grenades.thermite" type="number" step="1" min="0" data-role="grenade-input" /></div>
+              <div class="field"><label>Frag (qty)</label><input name="grenades.frag" type="number" step="1" min="0" data-role="grenade-input" /></div>
+              <div class="field grenade-total-field">
+                <label>Total grenades</label>
+                <input name="grenades.total" type="number" step="1" min="0" data-role="grenade-total" readonly tabindex="-1" />
+              </div>
             </section>
             <section class="panel">
               <div class="panel-heading">
@@ -258,12 +321,18 @@ export class UnitEditor {
     this.equipmentListEl = this.root.querySelector<HTMLElement>('[data-role="equipment-list"]')!;
     this.statusEl = this.root.querySelector<HTMLElement>('[data-role="status-bar"]')!;
     this.summaryEl = this.root.querySelector<HTMLElement>('[data-role="unit-summary"]')!;
+    this.speedInputEl = this.root.querySelector<HTMLInputElement>('[data-role="speed-input"]');
+    this.speedHintEl = this.root.querySelector<HTMLElement>('[data-role="speed-kph"]');
+    this.grenadeInputs = Array.from(this.root.querySelectorAll<HTMLInputElement>('[data-role="grenade-input"]'));
+    this.grenadeTotalInput = this.root.querySelector<HTMLInputElement>('[data-role="grenade-total"]');
     this.searchInput = this.root.querySelector<HTMLInputElement>('[data-role="search"]')!;
     this.categoryFilter = this.root.querySelector<HTMLSelectElement>('[data-role="category-filter"]')!;
     this.sortModeSelect = this.root.querySelector<HTMLSelectElement>('[data-role="sort-mode"]')!;
     this.metaFormationsEl = this.root.querySelector<HTMLElement>('[data-role="meta-formations"]');
     this.metaNationsEl = this.root.querySelector<HTMLElement>('[data-role="meta-nations"]');
     this.metaThemeEl = this.root.querySelector<HTMLElement>('[data-role="meta-theme"]');
+    this.unitCategoryTagListEl = this.root.querySelector<HTMLDataListElement>('[data-role="unit-category-tags"]');
+    this.unitCaliberTagListEl = this.root.querySelector<HTMLDataListElement>('[data-role="unit-caliber-tags"]');
   }
 
   private bindEvents(): void {
@@ -275,6 +344,10 @@ export class UnitEditor {
     });
     this.categoryFilter.addEventListener("change", () => this.renderUnitList());
     this.sortModeSelect.addEventListener("change", () => this.renderUnitList());
+    this.speedInputEl?.addEventListener("input", () => this.updateSpeedHint());
+    this.updateSpeedHint();
+    this.grenadeInputs.forEach((input) => input.addEventListener("input", () => this.updateGrenadeTotal()));
+    this.updateGrenadeTotal();
   }
 
   private bindMetaFeeds(): void {
@@ -448,8 +521,10 @@ export class UnitEditor {
         btn.classList.add("active");
       }
       btn.innerHTML = `
-        <span class="title">${unit.name || "Unnamed unit"}</span>
-        <span class="meta">${unit.category || "?"} Â· ${unit.tier || "Tier ?"} Â· ${unit.price ?? "â€”"} pts</span>
+        <span class="unit-pill-body">
+          <span class="title">${unit.name || "Unnamed unit"}</span>
+          <span class="meta">${unit.category || "?"} Â· ${unit.tier || "Tier ?"} Â· ${unit.price ?? "â€”"} pts</span>
+        </span>
       `;
       this.unitListEl.appendChild(btn);
     });
@@ -512,6 +587,7 @@ export class UnitEditor {
     setValue("stats.stealth", stats.stealth ?? "");
     setValue("stats.speed", stats.speed ?? "");
     setValue("stats.weight", stats.weight ?? "");
+    this.updateSpeedHint();
 
     const caps = unit.capabilities ?? {};
     setValue("cap.staticLineJump", booleanToSelectValue(caps.staticLineJump));
@@ -526,7 +602,10 @@ export class UnitEditor {
     setValue("grenades.flash", gren.flash ?? "");
     setValue("grenades.thermite", gren.thermite ?? "");
     setValue("grenades.frag", gren.frag ?? "");
-    setValue("grenades.total", gren.total ?? "");
+    if (this.grenadeTotalInput) {
+      this.grenadeTotalInput.value = gren.total === undefined || gren.total === null ? "" : String(gren.total);
+    }
+    this.updateGrenadeTotal();
 
     this.renderGunList(unit.guns ?? []);
     this.renderEquipmentList(unit.equipment ?? []);
@@ -562,28 +641,126 @@ export class UnitEditor {
     row.innerHTML = `
       <div class="row-header">
         <strong data-role="row-title">${gun?.name || "New weapon"}</strong>
-        <button type="button" class="ghost" data-action="remove-gun">Remove</button>
+        <div class="row-controls">
+          <button type="button" class="ghost small" data-action="toggle-gun">Collapse</button>
+          <button type="button" class="ghost danger" data-action="remove-gun">Remove</button>
+        </div>
       </div>
-      <div class="repeatable-grid">
-        <label>Name<input data-field="name" value="${gun?.name ?? ""}" /></label>
-        <label>Category<input data-field="category" value="${gun?.category ?? ""}" /></label>
-        <label>Caliber<input data-field="caliber" value="${gun?.caliber ?? ""}" /></label>
-        <label>Barrel length<input data-field="barrelLength" type="number" step="0.1" value="${gun?.barrelLength ?? ""}" /></label>
+      <div class="row-body">
+        <div class="repeatable-grid">
+          <label>Name<input data-field="name" value="${gun?.name ?? ""}" /></label>
+          <label>Category<input data-field="category" list="unit-category-tags" value="${gun?.category ?? ""}" /></label>
+          <label>Caliber<input data-field="caliber" list="unit-caliber-tags" value="${gun?.caliber ?? ""}" /></label>
+          <label>Barrel length (cm)<input data-field="barrelLength" type="number" step="0.1" value="${gun?.barrelLength ?? ""}" /></label>
           <label>Range (m)<input data-field="range" type="number" step="1" value="${gun?.range ?? ""}" /></label>
           <label>Dispersion (%)<input data-field="dispersion" type="number" step="0.01" value="${gun?.dispersion ?? ""}" /></label>
-        <label>Count<input data-field="count" type="number" step="1" min="0" value="${gun?.count ?? ""}" /></label>
-        <label>Ammo / soldier<input data-field="ammoPerSoldier" type="number" step="1" min="0" value="${gun?.ammoPerSoldier ?? ""}" /></label>
-        <label>Total ammo<input data-field="totalAmmo" type="number" step="1" min="0" value="${gun?.totalAmmo ?? ""}" /></label>
-        <label>Magazine size<input data-field="magazineSize" type="number" step="1" min="0" value="${gun?.magazineSize ?? ""}" /></label>
-        <label>Reload speed<input data-field="reloadSpeed" type="number" step="0.1" value="${gun?.reloadSpeed ?? ""}" /></label>
-        <label>Target acquisition<input data-field="targetAcquisition" type="number" step="0.1" value="${gun?.targetAcquisition ?? ""}" /></label>
+          <label>Amount of weapons (#)<input data-field="count" type="number" step="1" min="0" value="${gun?.count ?? ""}" /></label>
+          <label>Ammo / soldier (#)<input data-field="ammoPerSoldier" type="number" step="1" min="0" value="${gun?.ammoPerSoldier ?? ""}" /></label>
+          <label>Total ammo (rounds)<input data-field="totalAmmo" type="number" step="1" min="0" value="${gun?.totalAmmo ?? ""}" readonly tabindex="-1" /></label>
+          <label>Magazine size (rnds)<input data-field="magazineSize" type="number" step="1" min="0" value="${gun?.magazineSize ?? ""}" /></label>
+          <label>Reload speed (s)<input data-field="reloadSpeed" type="number" step="0.1" value="${gun?.reloadSpeed ?? ""}" /></label>
+          <label>Target acquisition (s)<input data-field="targetAcquisition" type="number" step="0.1" value="${gun?.targetAcquisition ?? ""}" /></label>
+        </div>
       </div>
     `;
     const nameInput = row.querySelector<HTMLInputElement>('[data-field="name"]');
     const title = row.querySelector<HTMLSpanElement>('[data-role="row-title"]');
+    const rowBody = row.querySelector<HTMLElement>(".row-body")!;
     nameInput?.addEventListener("input", () => {
       if (title) title.textContent = nameInput.value || "New weapon";
     });
+    const amountInput = row.querySelector<HTMLInputElement>('[data-field="count"]');
+    const ammoPerInput = row.querySelector<HTMLInputElement>('[data-field="ammoPerSoldier"]');
+    const totalAmmoInput = row.querySelector<HTMLInputElement>('[data-field="totalAmmo"]');
+    const weaponCaliberInput = row.querySelector<HTMLInputElement>('[data-field="caliber"]');
+    const recalcTotalAmmo = () => {
+      if (!totalAmmoInput || !amountInput || !ammoPerInput) return;
+      const amount = Number.parseInt(amountInput.value || "0", 10);
+      const per = Number.parseInt(ammoPerInput.value || "0", 10);
+      const total = (Number.isFinite(amount) ? amount : 0) * (Number.isFinite(per) ? per : 0);
+      totalAmmoInput.value = total > 0 ? total.toString() : "";
+    };
+    amountInput?.addEventListener("input", recalcTotalAmmo);
+    ammoPerInput?.addEventListener("input", recalcTotalAmmo);
+    recalcTotalAmmo();
+
+    const traitButtons: HTMLButtonElement[] = [];
+    const ammoBallisticUpdaters: Array<() => void> = [];
+    const notifyTraitChange = () => {
+      ammoBallisticUpdaters.forEach((fn) => fn());
+    };
+    const allowBallisticAutomation = (): boolean => {
+      return !traitButtons.some(
+        (btn) =>
+          btn.classList.contains("active") && HEAVY_TRAIT_VALUES.has((btn.dataset.value || "").toLowerCase())
+      );
+    };
+
+
+    const chipRow = document.createElement("div");
+    chipRow.className = "chip-field-row";
+
+    const trajectoryField = document.createElement("div");
+    trajectoryField.className = "chip-field";
+    const trajectoryLabel = document.createElement("span");
+    trajectoryLabel.className = "label";
+    trajectoryLabel.textContent = "Firing trajectories";
+    const trajectoryWrap = document.createElement("div");
+    trajectoryWrap.className = "chip-wrap";
+    const activeTrajectories = new Set((gun?.trajectories || []).map((value) => value.toLowerCase()));
+    TRAJECTORY_OPTIONS.forEach((option) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chip-button";
+      btn.dataset.chipGroup = "trajectory";
+      btn.dataset.value = option.value;
+      btn.textContent = option.label;
+      if (activeTrajectories.has(option.value.toLowerCase())) {
+        btn.classList.add("active");
+      }
+      btn.addEventListener("click", () => {
+        btn.classList.toggle("active");
+      });
+      trajectoryWrap.appendChild(btn);
+    });
+    trajectoryField.append(trajectoryLabel, trajectoryWrap);
+
+    const traitField = document.createElement("div");
+    traitField.className = "chip-field";
+    const traitLabel = document.createElement("span");
+    traitLabel.className = "label";
+    traitLabel.textContent = "Weapon traits";
+    const traitWrap = document.createElement("div");
+    traitWrap.className = "chip-wrap trait-wrap";
+    const activeTraits = new Set((gun?.traits || []).map((value) => value.toLowerCase()));
+    WEAPON_TRAIT_GROUPS.forEach((group, index) => {
+      group.forEach((option) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "chip-button";
+        btn.dataset.chipGroup = "trait";
+        btn.dataset.value = option.value;
+        btn.textContent = option.label;
+        if (activeTraits.has(option.value.toLowerCase())) {
+          btn.classList.add("active");
+        }
+        btn.addEventListener("click", () => {
+          btn.classList.toggle("active");
+          notifyTraitChange();
+        });
+        traitButtons.push(btn);
+        traitWrap.appendChild(btn);
+      });
+      if (index === 0) {
+        const separator = document.createElement("span");
+        separator.className = "trait-separator";
+        traitWrap.appendChild(separator);
+      }
+    });
+    traitField.append(traitLabel, traitWrap);
+
+    chipRow.append(trajectoryField, traitField);
+    rowBody.appendChild(chipRow);
 
     const ammoSection = document.createElement("div");
     ammoSection.className = "subpanel";
@@ -591,7 +768,7 @@ export class UnitEditor {
     ammoHeader.className = "subpanel-heading";
     ammoHeader.innerHTML = `<strong>Ammo types</strong>`;
     const ammoActions = document.createElement("div");
-    ammoActions.className = "header-actions";
+    ammoActions.className = "header-actions compact";
     const ammoLibrarySelect = document.createElement("select");
     ammoLibrarySelect.className = "ghost small";
     const populateAmmoLibrary = () => {
@@ -618,10 +795,64 @@ export class UnitEditor {
     addAmmoBtn.type = "button";
     addAmmoBtn.className = "ghost small";
     addAmmoBtn.textContent = "Add ammo";
-    ammoActions.append(ammoLibrarySelect, addAmmoBtn);
+    const collapseAmmoBtn = document.createElement("button");
+    collapseAmmoBtn.type = "button";
+    collapseAmmoBtn.className = "ghost small";
+    collapseAmmoBtn.textContent = "Collapse";
+    collapseAmmoBtn.addEventListener("click", () => {
+      ammoSection.classList.toggle("collapsed");
+      collapseAmmoBtn.textContent = ammoSection.classList.contains("collapsed") ? "Expand" : "Collapse";
+    });
+    ammoActions.append(ammoLibrarySelect, addAmmoBtn, collapseAmmoBtn);
     ammoHeader.appendChild(ammoActions);
     const ammoList = document.createElement("div");
     ammoList.className = "subpanel-list ammo-list";
+    const ammoBody = document.createElement("div");
+    ammoBody.className = "subpanel-body";
+    ammoBody.appendChild(ammoList);
+
+    const parseCaliberMeasurement = (raw?: string | null): number | undefined => {
+      if (!raw) return undefined;
+      const normalized = raw.replace(",", ".");
+      const match = normalized.match(/\d+(?:\.\d+)?/);
+      if (!match) return undefined;
+      const value = Number.parseFloat(match[0]);
+      return Number.isNaN(value) ? undefined : value;
+    };
+
+    const computeAmmoFpsEstimate = (caliberRaw: string, barrelLength: number, grain: number): number => {
+      const normalized = caliberRaw.replace(/\s+/g, "");
+      const caliberMatch = normalized.match(/(\d{1,3})(?:[.,](\d{1,3}))?x(\d{1,3})/i);
+      let diameter = parseCaliberMeasurement(caliberRaw) ?? 5.56;
+      if (caliberMatch) {
+        const decimalPart = caliberMatch[2] ?? "";
+        diameter = Number.parseFloat(decimalPart ? `${caliberMatch[1]}.${decimalPart}` : caliberMatch[1]);
+      }
+      const base = 2000;
+      const barrelComponent = barrelLength * 45;
+      const grainPenalty = grain * 1.5;
+      const caliberTweak = (6 - diameter) * 15;
+      const estimate = base + barrelComponent - grainPenalty + caliberTweak;
+      return Math.max(300, Math.round(estimate));
+    };
+
+    const getWeaponCaliberValue = (): string => weaponCaliberInput?.value.trim() || "";
+
+    const refreshAmmoCaliberAutoFill = () => {
+      const inherited = getWeaponCaliberValue();
+      ammoList.querySelectorAll<HTMLInputElement>('input[data-ammo-field="caliber"]').forEach((input) => {
+        const fallback = input.dataset.initialCaliber?.trim() || "";
+        const value = inherited || fallback;
+        input.value = value;
+        input.placeholder = value || inherited;
+        input.dataset.initialCaliber = value;
+      });
+    };
+
+    weaponCaliberInput?.addEventListener("input", () => {
+      refreshAmmoCaliberAutoFill();
+      ammoBallisticUpdaters.forEach((fn) => fn());
+    });
 
     const fireSection = document.createElement("div");
     fireSection.className = "subpanel";
@@ -629,7 +860,7 @@ export class UnitEditor {
     fireHeader.className = "subpanel-heading";
     fireHeader.innerHTML = `<strong>Fire modes</strong>`;
     const fireActions = document.createElement("div");
-    fireActions.className = "header-actions";
+    fireActions.className = "header-actions compact";
     const fireLibrarySelect = document.createElement("select");
     fireLibrarySelect.className = "ghost small";
     const populateFireLibrary = () => {
@@ -656,18 +887,31 @@ export class UnitEditor {
     addFireBtn.type = "button";
     addFireBtn.className = "ghost small";
     addFireBtn.textContent = "Add fire mode";
-    fireActions.append(fireLibrarySelect, addFireBtn);
+    const collapseFireBtn = document.createElement("button");
+    collapseFireBtn.type = "button";
+    collapseFireBtn.className = "ghost small";
+    collapseFireBtn.textContent = "Collapse";
+    collapseFireBtn.addEventListener("click", () => {
+      fireSection.classList.toggle("collapsed");
+      collapseFireBtn.textContent = fireSection.classList.contains("collapsed") ? "Expand" : "Collapse";
+    });
+    fireActions.append(fireLibrarySelect, addFireBtn, collapseFireBtn);
     fireHeader.appendChild(fireActions);
     const fireList = document.createElement("div");
     fireList.className = "subpanel-list fire-list";
+    const fireBody = document.createElement("div");
+    fireBody.className = "subpanel-body";
+    fireBody.appendChild(fireList);
 
     const appendAmmoRow = (ammo?: GunAmmo) => {
       const ammoRow = document.createElement("div");
       ammoRow.className = "ammo-row";
+      const airburstValue = ammo?.airburst === true || ammo?.airburst === "true" ? "yes" : "no";
       ammoRow.innerHTML = `
         <div class="subgrid">
           <label>Name<input data-ammo-field="name" value="${ammo?.name ?? ""}" /></label>
           <label>Type<input data-ammo-field="ammoType" value="${ammo?.ammoType ?? ""}" /></label>
+          <label>Caliber<input data-ammo-field="caliber" value="${ammo?.caliber ?? ""}" readonly tabindex="-1" /></label>
           <label>Caliber notes<input data-ammo-field="caliberDesc" value="${ammo?.caliberDesc ?? ""}" /></label>
           <label>Penetration (mm)<input type="number" step="0.1" data-ammo-field="penetration" value="${ammo?.penetration ?? ""}" /></label>
           <label>HE value<input type="number" step="0.1" data-ammo-field="heDeadliness" value="${ammo?.heDeadliness ?? ""}" /></label>
@@ -679,38 +923,69 @@ export class UnitEditor {
           <label>Notes<input data-ammo-field="notes" value="${ammo?.notes ?? ""}" /></label>
           <label>Airburst
             <select data-ammo-field="airburst">
-              <option value="" ${ammo?.airburst === undefined ? "selected" : ""}>None</option>
-              <option value="yes" ${ammo?.airburst === true || ammo?.airburst === "true" ? "selected" : ""}>Yes</option>
-              <option value="no" ${ammo?.airburst === false || ammo?.airburst === "false" ? "selected" : ""}>No</option>
+              <option value="yes" ${airburstValue === "yes" ? "selected" : ""}>Yes</option>
+              <option value="no" ${airburstValue === "no" ? "selected" : ""}>No</option>
             </select>
           </label>
-          <label>Sub munitions (#)<input type="number" step="1" min="0" data-ammo-field="subCount" value="${ammo?.subCount ?? ""}" /></label>
-          <label>Sub damage<input type="number" step="0.1" data-ammo-field="subDamage" value="${ammo?.subDamage ?? ""}" /></label>
-          <label>Sub penetration (mm)<input type="number" step="0.1" data-ammo-field="subPenetration" value="${ammo?.subPenetration ?? ""}" /></label>
+          <label>Sub munitions (#)<input type="number" step="1" min="0" data-ammo-field="subCount" data-airburst-dependent value="${ammo?.subCount ?? ""}" /></label>
+          <label>Sub damage<input type="number" step="0.1" data-ammo-field="subDamage" data-airburst-dependent value="${ammo?.subDamage ?? ""}" /></label>
+          <label>Sub penetration (mm)<input type="number" step="0.1" data-ammo-field="subPenetration" data-airburst-dependent value="${ammo?.subPenetration ?? ""}" /></label>
         </div>
         <div class="row-actions">
           <button type="button" class="ghost small" data-action="remove-ammo">Remove ammo</button>
         </div>
       `;
-      ammoRow.querySelector<HTMLButtonElement>('[data-action="remove-ammo"]')?.addEventListener("click", () => {
-        ammoRow.remove();
-        refreshFireAmmoOptions();
-      });
-      ammoList.appendChild(ammoRow);
       const grainInput = ammoRow.querySelector<HTMLInputElement>('input[data-ammo-field="grain"]');
       const fpsInput = ammoRow.querySelector<HTMLInputElement>('input[data-ammo-field="fps"]');
+      const ammoCaliberInput = ammoRow.querySelector<HTMLInputElement>('input[data-ammo-field="caliber"]');
+      if (ammoCaliberInput) {
+        ammoCaliberInput.readOnly = true;
+        ammoCaliberInput.tabIndex = -1;
+        ammoCaliberInput.classList.add("readonly");
+        if (typeof ammo?.caliber === "string" && ammo.caliber.trim()) {
+          ammoCaliberInput.dataset.initialCaliber = ammo.caliber.trim();
+        }
+        const startingValue = getWeaponCaliberValue() || ammoCaliberInput.dataset.initialCaliber || "";
+        ammoCaliberInput.value = startingValue;
+        ammoCaliberInput.placeholder = startingValue || getWeaponCaliberValue();
+        ammoCaliberInput.dataset.initialCaliber = startingValue;
+      }
       const getBarrelLength = () =>
         parseFloat(row.querySelector<HTMLInputElement>('[data-field="barrelLength"]')?.value || "0") || 0;
       const applyBallistics = () => {
+        if (!allowBallisticAutomation()) return;
         if (!grainInput || !fpsInput) return;
         const grain = parseFloat(grainInput.value || "0");
         const barrel = getBarrelLength();
+        const caliberSource = getWeaponCaliberValue() || ammoCaliberInput?.dataset.initialCaliber || "";
         if (Number.isNaN(grain) || Number.isNaN(barrel)) return;
-        const velocity = Math.max(200, Math.round(700 + barrel * 30 - grain * 1.5));
+        const velocity = computeAmmoFpsEstimate(caliberSource, barrel, grain);
         fpsInput.value = velocity.toString();
       };
+      ammoRow.querySelector<HTMLButtonElement>('[data-action="remove-ammo"]')?.addEventListener("click", () => {
+        ammoRow.remove();
+        const index = ammoBallisticUpdaters.indexOf(applyBallistics);
+        if (index >= 0) ammoBallisticUpdaters.splice(index, 1);
+        refreshFireAmmoOptions();
+      });
+      const airburstSelect = ammoRow.querySelector<HTMLSelectElement>('select[data-ammo-field="airburst"]');
+      const subInputs = ammoRow.querySelectorAll<HTMLInputElement>('[data-airburst-dependent]');
+      const syncAirburstFields = () => {
+        const enabled = airburstSelect?.value === "yes";
+        subInputs.forEach((input) => {
+          input.disabled = !enabled;
+        });
+      };
+      airburstSelect?.addEventListener("change", () => {
+        syncAirburstFields();
+      });
+      syncAirburstFields();
+      ammoList.appendChild(ammoRow);
       grainInput?.addEventListener("input", applyBallistics);
       row.querySelector<HTMLInputElement>('[data-field="barrelLength"]')?.addEventListener("input", applyBallistics);
+      ammoBallisticUpdaters.push(applyBallistics);
+      refreshAmmoCaliberAutoFill();
+      applyBallistics();
     };
 
     const appendFireRow = (mode?: GunFireMode) => {
@@ -720,7 +995,8 @@ export class UnitEditor {
         <div class="subgrid">
           <label>Name<input data-fire-field="name" value="${mode?.name ?? ""}" /></label>
           <label>Rounds / burst (#)<input type="number" step="1" min="0" data-fire-field="rounds" value="${mode?.rounds ?? ""}" /></label>
-          <label>Burst duration (s)<input type="number" step="0.1" min="0" data-fire-field="burstDuration" value="${mode?.burstDuration ?? ""}" /></label>
+          <label>Min range (m)<input type="number" step="0.1" min="0" data-fire-field="minRange" value="${mode?.minRange ?? ""}" /></label>
+          <label>Max range (m)<input type="number" step="0.1" min="0" data-fire-field="maxRange" value="${mode?.maxRange ?? ""}" /></label>
           <label>Cooldown (s)<input type="number" step="0.1" min="0" data-fire-field="cooldown" value="${mode?.cooldown ?? ""}" /></label>
           <label>Ammo reference<select data-fire-field="ammoRef"></select></label>
         </div>
@@ -783,9 +1059,15 @@ export class UnitEditor {
       }
     });
 
-    ammoSection.append(ammoHeader, ammoList);
-    fireSection.append(fireHeader, fireList);
-    row.append(fireSection, ammoSection);
+    ammoSection.append(ammoHeader, ammoBody);
+    fireSection.append(fireHeader, fireBody);
+    rowBody.append(fireSection, ammoSection);
+    row.querySelector('[data-action="toggle-gun"]')?.addEventListener("click", (event) => {
+      event.preventDefault();
+      row.classList.toggle("collapsed");
+      const button = event.currentTarget as HTMLButtonElement;
+      button.textContent = row.classList.contains("collapsed") ? "Expand" : "Collapse";
+    });
     this.gunListEl.appendChild(row);
     refreshFireAmmoOptions();
   }
@@ -851,13 +1133,20 @@ export class UnitEditor {
     });
     if (Object.keys(stats).length) unit.stats = stats;
 
-    const grenFields: (keyof UnitGrenades)[] = ["smoke", "flash", "thermite", "frag", "total"];
-    grenFields.forEach((key) => {
+    const grenadeInputs: (keyof UnitGrenades)[] = ["smoke", "flash", "thermite", "frag"];
+    grenadeInputs.forEach((key) => {
       const value = this.toInt(data.get(`grenades.${key}`));
       if (value !== undefined) {
         gren[key] = value;
       }
     });
+    const grenadeSum = grenadeInputs.reduce((sum, key) => {
+      const value = gren[key];
+      return sum + (typeof value === "number" ? value : 0);
+    }, 0);
+    if (grenadeSum > 0) {
+      gren.total = grenadeSum;
+    }
     if (Object.keys(gren).length) unit.grenades = gren;
 
     const capabilities: Unit["capabilities"] = {};
@@ -882,6 +1171,12 @@ export class UnitEditor {
 
     unit.guns = this.collectGunRows();
     unit.equipment = this.collectEquipmentRows();
+
+    if (this.workingCopy.symbol) {
+      unit.symbol = deepClone(this.workingCopy.symbol);
+    } else {
+      delete unit.symbol;
+    }
 
     return unit;
   }
@@ -922,6 +1217,7 @@ export class UnitEditor {
           const ammo: GunAmmo = {
             name: text("name") || undefined,
             ammoType: text("ammoType") || undefined,
+            caliber: text("caliber") || undefined,
             caliberDesc: text("caliberDesc") || undefined,
             ammoPerSoldier: intValue("ammoPerSoldier"),
             penetration: numberValue("penetration"),
@@ -954,7 +1250,8 @@ export class UnitEditor {
           const fire: GunFireMode = {
             name: text("name") || undefined,
             rounds: intValue("rounds"),
-            burstDuration: numberValue("burstDuration"),
+            minRange: numberValue("minRange"),
+            maxRange: numberValue("maxRange"),
             cooldown: numberValue("cooldown"),
             ammoRef: text("ammoRef") || undefined,
           };
@@ -963,6 +1260,24 @@ export class UnitEditor {
         })
         .filter((mode): mode is GunFireMode => Boolean(mode));
       if (fireModes.length) gun.fireModes = fireModes;
+
+      const trajectoryValues = Array.from(
+        row.querySelectorAll<HTMLButtonElement>('[data-chip-group="trajectory"]')
+      )
+        .filter((chip) => chip.classList.contains("active"))
+        .map((chip) => chip.dataset.value || "")
+        .filter(Boolean);
+      if (trajectoryValues.length) {
+        gun.trajectories = trajectoryValues;
+      }
+
+      const traitValues = Array.from(row.querySelectorAll<HTMLButtonElement>('[data-chip-group="trait"]'))
+        .filter((chip) => chip.classList.contains("active"))
+        .map((chip) => chip.dataset.value || "")
+        .filter(Boolean);
+      if (traitValues.length) {
+        gun.traits = traitValues;
+      }
 
       if (Object.values(gun).some((value) => value !== undefined && value !== "")) {
         guns.push(gun);
@@ -1040,6 +1355,23 @@ export class UnitEditor {
     return text.length ? text : undefined;
   }
 
+  private renderWeaponTagDatalists(): void {
+    if (this.unitCategoryTagListEl) {
+      this.unitCategoryTagListEl.innerHTML = this.buildTagOptionMarkup(Object.keys(this.weaponTags.categories || {}));
+    }
+    if (this.unitCaliberTagListEl) {
+      this.unitCaliberTagListEl.innerHTML = this.buildTagOptionMarkup(Object.keys(this.weaponTags.calibers || {}));
+    }
+  }
+
+  private buildTagOptionMarkup(values: string[]): string {
+    if (!values || !values.length) return "";
+    return [...values]
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => `<option value="${value}"></option>`)
+      .join("");
+  }
+
   private setStatus(message: string, tone: "default" | "success" | "error"): void {
     if (!this.statusEl) return;
     this.statusEl.textContent = message;
@@ -1052,26 +1384,69 @@ export class UnitEditor {
     }
   }
 
+  private updateSpeedHint(): void {
+    if (!this.speedHintEl || !this.speedInputEl) return;
+    const value = Number.parseFloat(this.speedInputEl.value);
+    if (!Number.isFinite(value)) {
+      this.speedHintEl.textContent = "-- km/h";
+      return;
+    }
+    const kph = value * 3.6;
+    this.speedHintEl.textContent = `${kph.toFixed(1)} km/h`;
+  }
+
+  private updateGrenadeTotal(): void {
+    if (!this.grenadeTotalInput) return;
+    const total = this.grenadeInputs.reduce((sum, input) => {
+      const value = Number.parseInt(input.value, 10);
+      return sum + (Number.isFinite(value) ? value : 0);
+    }, 0);
+    this.grenadeTotalInput.value = total > 0 ? total.toString() : "";
+  }
+
   private updateTemplateLibraries(units: Unit[]): void {
     const ammoMap = new Map<string, GunAmmo>();
     const fireMap = new Map<string, GunFireMode>();
     const ammoPerCaliber = new Map<string, GunAmmo[]>();
+    const registerAmmo = (ammo: GunAmmo, fallbackName: string, caliberHint?: string | number) => {
+      const label = (ammo.name ?? fallbackName).toString().toLowerCase();
+      const key = `${label}-${ammo.ammoType || ""}`;
+      if (!ammoMap.has(key)) ammoMap.set(key, deepClone(ammo));
+      const caliberSource =
+        caliberHint ?? (typeof ammo.caliber === "string" ? ammo.caliber : undefined) ?? "generic";
+      const calKey = caliberSource.toString().toLowerCase();
+      const bucket = ammoPerCaliber.get(calKey) ?? [];
+      bucket.push(deepClone(ammo));
+      ammoPerCaliber.set(calKey, bucket);
+      const genericBucket = ammoPerCaliber.get("generic") ?? [];
+      genericBucket.push(deepClone(ammo));
+      ammoPerCaliber.set("generic", genericBucket);
+    };
+
+    const registerFire = (mode: GunFireMode, fallbackName: string) => {
+      const key = (mode.name ?? fallbackName).toString().toLowerCase();
+      if (!fireMap.has(key)) fireMap.set(key, deepClone(mode));
+    };
+
+    this.hostAmmoTemplates.forEach((ammo, index) => {
+      registerAmmo(ammo, `hostAmmo${index}`, typeof ammo.caliber === "string" ? ammo.caliber : undefined);
+    });
+
+    this.hostFireTemplates.forEach((mode, index) => {
+      registerFire(mode, `hostMode${index}`);
+    });
+
+    this.fireLibraryTemplates.forEach((mode, index) => {
+      registerFire(mode, `libraryMode${index}`);
+    });
+
     units.forEach((unit) => {
       (unit.guns || []).forEach((gun) => {
         (gun.ammoTypes || []).forEach((ammo, index) => {
-          const key = `${(ammo.name || `Ammo${index}`)?.toLowerCase()}-${ammo.ammoType || ""}`;
-          if (!ammoMap.has(key)) ammoMap.set(key, deepClone(ammo));
-          const calKey = (gun.caliber || "generic").toLowerCase();
-          const bucket = ammoPerCaliber.get(calKey) ?? [];
-          bucket.push(deepClone(ammo));
-          ammoPerCaliber.set(calKey, bucket);
-          const genericBucket = ammoPerCaliber.get("generic") ?? [];
-          genericBucket.push(deepClone(ammo));
-          ammoPerCaliber.set("generic", genericBucket);
+          registerAmmo(ammo, `unitAmmo${index}`, gun.caliber);
         });
         (gun.fireModes || []).forEach((mode, index) => {
-          const key = `${(mode.name || `Mode${index}`)?.toLowerCase()}`;
-          if (!fireMap.has(key)) fireMap.set(key, deepClone(mode));
+          registerFire(mode, `unitMode${index}`);
         });
       });
     });
