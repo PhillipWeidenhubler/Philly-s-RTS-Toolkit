@@ -91,7 +91,6 @@ All templates follow this structure:
 ```markdown
 ---
 title: "[Type] - Title"
-labels: ["label1", "label2"]
 ---
 
 ## Main Sections
@@ -102,8 +101,7 @@ labels: ["label1", "label2"]
 ```
 
 The frontmatter (between `---`) includes:
-- **title:** Suggested title format
-- **labels:** Recommended labels for the discussion
+- **title:** Suggested title format for the discussion
 
 ## Customizing Templates
 
