@@ -5,10 +5,10 @@ labels: ["unit-design"]
 
 ## Unit Overview
 
-**Unit Name:** 
+**Unit Name:**
 **Category:** (Infantry / Armor / Air / Naval / Artillery / etc.)
-**Tier:** 
-**Cost:** 
+**Tier:**
+**Cost:**
 **Nation/Faction:** 
 
 ## Description

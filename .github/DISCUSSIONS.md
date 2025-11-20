@@ -37,7 +37,7 @@ Welcome to the Philly's RTS Toolkit discussion channels! This document outlines 
 - Unit design patterns and best practices
 
 **Template for sharing:**
-```
+```markdown
 **Unit Name:** [Your unit name]
 **Category:** [Infantry/Armor/Air/Naval/etc.]
 **Tier:** [Tier level]

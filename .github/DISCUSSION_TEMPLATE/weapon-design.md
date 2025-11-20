@@ -5,7 +5,7 @@ labels: ["weapon-design", "ballistics"]
 
 ## Weapon Overview
 
-**Weapon Name:** 
+**Weapon Name:**
 
 **Weapon Type:**
 - [ ] Small Arms (rifles, pistols, SMG)

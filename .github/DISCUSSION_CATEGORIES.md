@@ -1,6 +1,6 @@
 # Discussion Categories Configuration Reference
-# 
-# This file serves as a reference for setting up GitHub Discussions categories.
+
+This file serves as a reference for setting up GitHub Discussions categories.
 # GitHub Discussions categories must be configured through the repository settings UI at:
 # https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/settings
 #
