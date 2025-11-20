@@ -97,12 +97,22 @@ Philly's RTS Toolkit is a hybrid web-desktop application built with C# and HTML/
 
   ## Contributing
 
+  Contributions are welcome! Here's how to get involved:
+
+  **For Developers:**
   1. Update/extend shared types in `next-gen/frontend/app/src/types`.
   2. Add or adjust WebView message handling + persistence in `next-gen/desktop`.
   3. Wire new UI modules/services inside `next-gen/frontend/app/src/modules`.
   4. Run `npm run build` followed by `run_next_gen.bat` (or rebuild manually) before opening a PR.
 
-  Issues and pull requests are welcome! Please describe the problem, environment, and repro steps when filing bugs.
+  **For Everyone:**
+  - 💬 Join [GitHub Discussions](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions) to share ideas
+  - 🐛 Report bugs via [GitHub Issues](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/issues)
+  - 📚 Share your unit/weapon libraries in [Data Libraries discussions](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/data-libraries)
+  - 📖 Improve documentation or add examples
+  - 🎨 Share your designs in [Show & Tell](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/show-tell)
+
+  Please describe the problem, environment, and repro steps when filing bugs.
 
   ## License & Credits
 
@@ -129,10 +139,14 @@ dotnet run -c Release
 
 Contributions are welcome! Here are some ways you can help:
 
-- Report bugs or suggest features via GitHub Issues
-- Submit pull requests with improvements
-- Share your unit/weapon libraries with the community
-- Improve documentation or add translations
+- 💬 Join [GitHub Discussions](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions) to share ideas and get help
+- 🐛 Report bugs or suggest features via [GitHub Issues](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/issues)
+- 🔀 Submit pull requests with improvements
+- 📚 Share your unit/weapon libraries in [Data Libraries discussions](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/data-libraries)
+- 📖 Improve documentation or add translations
+- 🎨 Showcase your work in [Show & Tell discussions](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/show-tell)
+
+See our [Discussion Guide](.github/DISCUSSIONS.md) for more information on community channels.
 
 ## Keyboard Shortcuts
 
@@ -179,12 +193,29 @@ Developed by Phillip Weidenhubler
 - [html2canvas](https://html2canvas.hertzen.com/) - Screenshot generation
 - [Microsoft WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) - Web rendering engine
 
+## Community & Discussions
+
+Join our community discussions to share designs, get help, and collaborate:
+
+**Discussion Channels:**
+- 💬 [General Discussion](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions) - General conversations and questions
+- 🎨 [Unit Design Showcase](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/unit-design-showcase) - Share your unit designs
+- ⚔️ [Weapons & Ballistics](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/weapons-ballistics) - Discuss weapon systems
+- 🏛️ [Formations & Nations](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/formations-nations) - Share organizational designs
+- 📚 [Data Libraries](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/data-libraries) - Community data sharing
+- 💡 [Ideas & Features](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/ideas) - Suggest improvements
+- 🔧 [Technical Support](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/technical-support) - Get help with issues
+- 👨‍💻 [Development](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/development) - Contribute to the project
+
+📖 **[Full Discussion Guide](.github/DISCUSSIONS.md)** - Learn how to use discussions effectively
+
 ## Support
 
 For questions, issues, or suggestions:
-- Open an issue on [GitHub](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/issues)
-- Check existing documentation and sample data
-- Review the in-app hints and tooltips
+- 💬 Join [GitHub Discussions](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions) for community help
+- 🐛 Open an [issue](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/issues) for bug reports
+- 📖 Check existing documentation and sample data
+- 💡 Review the in-app hints and tooltips
 
 ---
 
