@@ -135,19 +135,6 @@ dotnet build PhillyRTSToolkit.csproj -c Release
 dotnet run -c Release
 ```
 
-### Contributing
-
-Contributions are welcome! Here are some ways you can help:
-
-- 💬 Join [GitHub Discussions](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions) to share ideas and get help
-- 🐛 Report bugs or suggest features via [GitHub Issues](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/issues)
-- 🔀 Submit pull requests with improvements
-- 📚 Share your unit/weapon libraries in [Data Libraries discussions](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/data-libraries)
-- 📖 Improve documentation or add translations
-- 🎨 Showcase your work in [Show & Tell discussions](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/show-tell)
-
-See our [Discussion Guide](.github/DISCUSSIONS.md) for more information on community channels.
-
 ## Keyboard Shortcuts
 
 - **F11**: Toggle fullscreen mode

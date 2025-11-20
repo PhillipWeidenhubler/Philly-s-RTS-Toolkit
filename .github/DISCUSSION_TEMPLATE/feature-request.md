@@ -1,6 +1,5 @@
 ---
 title: "[Feature Name] - Feature Request"
-labels: ["enhancement", "feature-request"]
 ---
 
 ## Feature Description

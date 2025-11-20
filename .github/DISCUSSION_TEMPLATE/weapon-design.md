@@ -1,6 +1,5 @@
 ---
 title: "[Weapon Name] - Weapon Design Discussion"
-labels: ["weapon-design", "ballistics"]
 ---
 
 ## Weapon Overview

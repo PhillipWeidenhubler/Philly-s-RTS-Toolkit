@@ -1,6 +1,5 @@
 ---
 title: "[Library Name] - Data Library Share"
-labels: ["data-library", "community-resource"]
 ---
 
 ## Library Information

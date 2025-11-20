@@ -1,6 +1,5 @@
 ---
 title: "[Issue] - Technical Support"
-labels: ["support", "help-wanted"]
 ---
 
 ## Problem Description

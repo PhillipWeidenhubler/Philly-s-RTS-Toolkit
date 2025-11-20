@@ -1,6 +1,5 @@
 ---
 title: "[Unit Name] - Unit Design"
-labels: ["unit-design"]
 ---
 
 ## Unit Overview
