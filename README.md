@@ -28,39 +28,42 @@ Philly's RTS Toolkit is a hybrid web-desktop application built with C# and HTML/
 - **Workspace separation**: the repo root now highlights `backend/` (server code), `desktop/` (WinForms host), `frontend/` (Vite workspace), and `database/` (schema + backups). Visual Studio solution folders mirror this layout so server files are easy to find.
 
 ### Unit Management
-- **Comprehensive Unit Editor**: Create units with detailed attributes including:
-  - Basic info (name, cost, category, tier, description)
-  # Philly's RTS Toolkit
+- **Unit Designer** – Rich editor for unit metadata, combat stats, capabilities, and equipment
+- **Weapon & Ammo Library** – Manage reusable weapon templates, ammo definitions, and fire modes with automatic ballistic helpers
+- **Formations & Nations** – Compose higher-order organizations and view aggregate stats
+- **Analytics** – Stats dashboard, upcoming charting modules, and planned export pipelines
+- **Persistent Storage** – SQLite mirrors all payload data while JSON backups (`database/json/*.json`) remain available for import/export
 
-  A next-generation desktop authoring environment for creating, managing, and visualizing RTS unit statcards. The application pairs a C# WinForms/WebView2 host (with SQLite persistence) and a modern Vite + TypeScript + SCSS frontend.
+## Prerequisites
 
-  ## Highlights
+- Windows 10/11
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
+- [Node.js 18+](https://nodejs.org/) for the Vite build
 
-  - **Unit Designer** – Rich editor for unit metadata, combat stats, capabilities, and equipment.
-  - **Weapon & Ammo Library** – Manage reusable weapon templates, ammo definitions, and fire modes with automatic ballistic helpers.
-  - **Formations & Nations** – Compose higher-order organizations and view aggregate stats.
-  - **Analytics** – Stats dashboard, upcoming charting modules, and planned export pipelines.
-  - **Persistent Storage** – SQLite mirrors all payload data while JSON backups (`database/json/*.json`) remain available for import/export.
+## Setup & Run
 
-  ## Prerequisites
+```bash
+# Clone the repo
+git clone https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit.git
+cd Philly-s-RTS-Toolkit
+```
 
-  - Windows 10/11
-  - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-  - [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
-  - [Node.js 18+](https://nodejs.org/) for the Vite build
+## Tests & Continuous Integration
 
-  ## Setup & Run
+- **Frontend unit tests**: `cd frontend/app && npm install && npm run test` executes the Vitest suite that now covers shared helpers plus the critical services that proxy host messages
+- **Frontend build**: `npm run build` (in `frontend/app`) produces the Vite bundle consumed by the WinForms host. The CI workflow runs the build before the tests to ensure regressions surface early
+- **Desktop tests**: `dotnet test "Philly's RTS Toolkit.sln"` runs the new `PhillyRTSToolkit.Tests` project, which exercises `DatabaseService` migrations and SQLite-seeding logic
+- **GitHub Actions**: `.github/workflows/ci.yml` provisions Node 20 and .NET 8 on `windows-latest`, runs the Vite build, Vitest, and `dotnet test`, and uploads standard test logs. Use it as the canonical signal before merging
 
-  ```bash
-  # Clone the repo
-  git clone https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit.git
-  cd Philly-s-RTS-Toolkit
-  ```
+## Contributing
 
-  ## Tests & Continuous Integration
+Contributions are welcome! Please see the [.github/DISCUSSIONS.md](.github/DISCUSSIONS.md) for information about our community channels and how to get involved.
 
-  - **Frontend unit tests**: `cd frontend/app && npm install && npm run test` executes the Vitest suite that now covers shared helpers plus the critical services that proxy host messages.
-  - **Frontend build**: `npm run build` (in `frontend/app`) produces the Vite bundle consumed by the WinForms host. The CI workflow runs the build before the tests to ensure regressions surface early.
-  - **Desktop tests**: `dotnet test "Philly's RTS Toolkit.sln"` runs the new `PhillyRTSToolkit.Tests` project, which exercises `DatabaseService` migrations and SQLite-seeding logic.
-  - **GitHub Actions**: `.github/workflows/ci.yml` provisions Node 20 and .NET 8 on `windows-latest`, runs the Vite build, Vitest, and `dotnet test`, and uploads standard test logs. Use it as the canonical signal before merging.
+## License
 
+This project is open source. Please check the repository for specific license information.
+
+## Credits
+
+Developed by Phillip Weidenhubler. Built with .NET 8, WebView2, SQLite, Vite, TypeScript, and SCSS.
