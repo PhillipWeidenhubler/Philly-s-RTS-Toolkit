@@ -2,9 +2,26 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "next-gen", "next-gen", "{0113CF08-64B1-5750-1F12-95A036500378}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "backend", "backend", "{D6FC7E5E-CF1F-42C1-A671-6F949DE10A6D}"
+	ProjectSection(SolutionItems) = preProject
+		backend\server\LocalServerHost.cs = backend\server\LocalServerHost.cs
+		backend\server\PayloadStorageService.cs = backend\server\PayloadStorageService.cs
+		backend\server\ServerModels.cs = backend\server\ServerModels.cs
+	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhillyRTSToolkit", "next-gen\desktop\PhillyRTSToolkit.csproj", "{421CA6B6-F1AA-0046-C5ED-31B0927E2F92}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "database", "database", "{2D7D0E4F-E052-4F33-A7CB-77C95DA2AE2F}"
+	ProjectSection(SolutionItems) = preProject
+		database\schema.sql = database\schema.sql
+		database\json\state.json = database\json\state.json
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhillyRTSToolkit", "desktop\PhillyRTSToolkit.csproj", "{421CA6B6-F1AA-0046-C5ED-31B0927E2F92}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "launcher", "launcher", "{4F6DA290-7AD5-4E5D-A132-4B6B1CD0C8F2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhillyRTSToolkit.Launcher", "launcher\PhillyRTSToolkit.Launcher.csproj", "{9D2EE8B8-E3C2-4D50-9D84-17B65A65C2A1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PhillyRTSToolkit.Tests", "tests\PhillyRTSToolkit.Tests\PhillyRTSToolkit.Tests.csproj", "{69D47D60-3E64-4F04-827D-6BA6F8A2C1D1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -16,12 +33,20 @@ Global
 		{421CA6B6-F1AA-0046-C5ED-31B0927E2F92}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{421CA6B6-F1AA-0046-C5ED-31B0927E2F92}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{421CA6B6-F1AA-0046-C5ED-31B0927E2F92}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9D2EE8B8-E3C2-4D50-9D84-17B65A65C2A1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9D2EE8B8-E3C2-4D50-9D84-17B65A65C2A1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9D2EE8B8-E3C2-4D50-9D84-17B65A65C2A1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9D2EE8B8-E3C2-4D50-9D84-17B65A65C2A1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{69D47D60-3E64-4F04-827D-6BA6F8A2C1D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{69D47D60-3E64-4F04-827D-6BA6F8A2C1D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{69D47D60-3E64-4F04-827D-6BA6F8A2C1D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{69D47D60-3E64-4F04-827D-6BA6F8A2C1D1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{421CA6B6-F1AA-0046-C5ED-31B0927E2F92} = {0113CF08-64B1-5750-1F12-95A036500378}
+		{9D2EE8B8-E3C2-4D50-9D84-17B65A65C2A1} = {4F6DA290-7AD5-4E5D-A132-4B6B1CD0C8F2}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6CEEB3C7-D39C-415E-B7A3-6161220281F7}

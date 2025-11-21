@@ -1,0 +1,251 @@
+{
+  "frontendToHost": [
+    {
+      "type": "save",
+      "payload": {
+        "data": {
+          "units": []
+        },
+        "weapons": [],
+        "ammo": [],
+        "fireModes": [],
+        "weaponTags": {},
+        "settings": {}
+      }
+    },
+    {
+      "type": "request-load"
+    },
+    {
+      "type": "host-info-request"
+    },
+    {
+      "type": "get-units"
+    },
+    {
+      "type": "save-unit",
+      "payload": {
+        "unit": {
+          "id": 1,
+          "name": "Infantry"
+        }
+      }
+    },
+    {
+      "type": "delete-unit",
+      "payload": {
+        "id": 1
+      }
+    },
+    {
+      "type": "get-nations"
+    },
+    {
+      "type": "save-nations",
+      "payload": {
+        "nations": [
+          {
+            "id": 1,
+            "name": "Allied"
+          }
+        ]
+      }
+    },
+    {
+      "type": "get-formations"
+    },
+    {
+      "type": "save-formations",
+      "payload": {
+        "formations": [
+          {
+            "id": 1,
+            "name": "Line",
+            "nationId": 1
+          }
+        ]
+      }
+    },
+    {
+      "type": "get-settings"
+    },
+    {
+      "type": "save-settings",
+      "payload": {
+        "theme": "dark"
+      }
+    },
+    {
+      "type": "get-weapons"
+    },
+    {
+      "type": "save-weapons",
+      "payload": {
+        "weapons": [
+          {
+            "id": 1,
+            "name": "Rifle"
+          }
+        ]
+      }
+    },
+    {
+      "type": "get-ammo"
+    },
+    {
+      "type": "save-ammo",
+      "payload": {
+        "ammo": [
+          {
+            "id": 1,
+            "name": "5.56mm"
+          }
+        ]
+      }
+    },
+    {
+      "type": "get-fire-modes"
+    },
+    {
+      "type": "save-fire-modes",
+      "payload": {
+        "fireModes": [
+          {
+            "id": 1,
+            "name": "Burst"
+          }
+        ]
+      }
+    },
+    {
+      "type": "get-weapon-tags"
+    },
+    {
+      "type": "save-weapon-tags",
+      "payload": {
+        "automatic": true
+      }
+    },
+    {
+      "type": "get-server-logs"
+    }
+  ],
+  "hostToFrontend": [
+    {
+      "type": "load",
+      "payload": {
+        "data": {
+          "units": []
+        },
+        "weapons": [],
+        "ammo": [],
+        "fireModes": [],
+        "weaponTags": {},
+        "settings": {}
+      }
+    },
+    {
+      "type": "units-data",
+      "payload": {
+        "units": [
+          {
+            "id": 1,
+            "name": "Infantry"
+          }
+        ]
+      }
+    },
+    {
+      "type": "formations-data",
+      "payload": {
+        "formations": [
+          {
+            "id": 1,
+            "name": "Line"
+          }
+        ]
+      }
+    },
+    {
+      "type": "nations-data",
+      "payload": {
+        "nations": [
+          {
+            "id": 1,
+            "name": "Allied"
+          }
+        ]
+      }
+    },
+    {
+      "type": "settings-data",
+      "payload": {
+        "theme": "dark"
+      }
+    },
+    {
+      "type": "weapons-data",
+      "payload": {
+        "weapons": [
+          {
+            "id": 1,
+            "name": "Rifle"
+          }
+        ]
+      }
+    },
+    {
+      "type": "ammo-data",
+      "payload": {
+        "ammo": [
+          {
+            "id": 1,
+            "name": "5.56mm"
+          }
+        ]
+      }
+    },
+    {
+      "type": "fire-modes-data",
+      "payload": {
+        "fireModes": [
+          {
+            "id": 1,
+            "name": "Burst"
+          }
+        ]
+      }
+    },
+    {
+      "type": "weapon-tags-data",
+      "payload": {
+        "automatic": true
+      }
+    },
+    {
+      "type": "host-info",
+      "payload": {
+        "version": "1.0.0",
+        "databasePath": "db",
+        "dataDirectory": "data",
+        "mode": "dist"
+      }
+    },
+    {
+      "type": "server-logs",
+      "payload": {
+        "entries": [
+          {
+            "message": "boot complete"
+          }
+        ]
+      }
+    },
+    {
+      "type": "server-log-event",
+      "payload": {
+        "message": "boot complete"
+      }
+    }
+  ]
+}
