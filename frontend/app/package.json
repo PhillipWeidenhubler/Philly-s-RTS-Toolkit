@@ -1,0 +1,49 @@
+{
+  "name": "rts-toolkit-next",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "run-p sass:watch dev:vite",
+    "dev:vite": "vite",
+    "predev": "npm run sass:build",
+    "build": "vite build",
+    "prebuild": "npm run sass:build",
+    "preview": "vite preview",
+    "prepreview": "npm run sass:build",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "lint:fix": "npm run lint -- --fix",
+    "format": "prettier --write \"src/**/*.{ts,scss}\"",
+    "test": "vitest run",
+    "pretest": "npm run sass:build",
+    "test:watch": "vitest",
+    "check": "npm run lint && npm run test",
+    "generate:contracts": "tsx ./scripts/generate-message-schemas.ts",
+    "sass:build": "sass --style=expanded --embed-source-map --quiet-deps src/styles/main.scss src/styles/.generated/main.css",
+    "sass:watch": "sass --style=expanded --embed-source-map --quiet-deps --watch src/styles/main.scss:src/styles/.generated/main.css"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.2",
+    "zod": "^3.23.8",
+    "zustand": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^9.9.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "npm-run-all": "^4.1.5",
+    "postcss": "^8.4.31",
+    "prettier": "^3.3.2",
+    "puppeteer": "^24.30.0",
+    "sass": "^1.80.5",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.6",
+    "typescript": "^5.3.2",
+    "vite": "^5.0.0",
+    "vitest": "^1.6.0",
+    "zod-to-json-schema": "^3.25.0"
+  }
+}

@@ -14,6 +14,8 @@ obj/
 *.dll
 *.pdb
 *.cache
+PhillyRTSToolkit.deps.json
+PhillyRTSToolkit.runtimeconfig.json
 
 # WebView2 / browser profile artifacts
 **/PhillyRTSToolkit.exe.WebView2/
@@ -24,6 +26,7 @@ obj/
 
 # Node
 node_modules/
+frontend/app/src/styles/.generated/*.css
 
 # OS files
 Thumbs.db

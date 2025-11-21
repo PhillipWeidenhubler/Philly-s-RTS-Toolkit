@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <RepoRoot>$(MSBuildProjectDirectory)\..</RepoRoot>
+    <RootExeBaseName>PhillyRTSToolkit</RootExeBaseName>
+  </PropertyGroup>
+
+  <Target Name="CopyLauncherToRoot" AfterTargets="Build">
+    <ItemGroup>
+      <LauncherArtifacts Include="$(TargetPath)" Destination="$(RepoRoot)\$(RootExeBaseName).exe" />
+      <LauncherArtifacts Include="$(TargetDir)$(TargetName).deps.json" Destination="$(RepoRoot)\$(RootExeBaseName).deps.json" Condition="Exists('$(TargetDir)$(TargetName).deps.json')" />
+      <LauncherArtifacts Include="$(TargetDir)$(TargetName).runtimeconfig.json" Destination="$(RepoRoot)\$(RootExeBaseName).runtimeconfig.json" Condition="Exists('$(TargetDir)$(TargetName).runtimeconfig.json')" />
+    </ItemGroup>
+    <Copy SourceFiles="%(LauncherArtifacts.Identity)" DestinationFiles="%(LauncherArtifacts.Destination)" OverwriteReadOnlyFiles="true" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

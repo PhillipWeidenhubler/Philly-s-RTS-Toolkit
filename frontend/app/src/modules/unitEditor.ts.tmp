@@ -1,0 +1,555 @@
+import type { Equipment, Gun, GunAmmo, GunFireMode, Unit, UnitGrenades, UnitStats } from "../types";
+import { deepClone } from "../lib/helpers";
+import { unitService } from "../services/unitService";
+import { formationService } from "../services/formationService";
+import { nationService } from "../services/nationService";
+import { settingsService } from "../services/settingsService";
+
+const createBlankUnit = (): Unit => ({
+  name: "",
+  category: "",
+  internalCategory: "",
+  tier: "",
+  price: "",
+  description: "",
+  image: "",
+  stats: {},
+  grenades: {},
+  capabilities: { sprint: {} },
+  guns: [],
+  equipment: [],
+});
+
+const booleanToSelectValue = (value: boolean | string | undefined): string => {
+  if (value === true || value === "true") return "true";
+  if (value === false || value === "false") return "false";
+  return "";
+};
+
+const parseBool = (value: FormDataEntryValue | null): boolean | undefined => {
+  if (!value) return undefined;
+  if (value.toString() === "true") return true;
+  if (value.toString() === "false") return false;
+  return undefined;
+};
+
+export class UnitEditor {
+  private root: HTMLElement;
+  private units: Unit[] = [];
+
+  private form!: HTMLFormElement;
+  private unitListEl!: HTMLElement;
+  private gunListEl!: HTMLElement;
+  private equipmentListEl!: HTMLElement;
+  private statusEl!: HTMLElement;
+  private summaryEl!: HTMLElement;
+  private searchInput!: HTMLInputElement;
+  private categoryFilter!: HTMLSelectElement;
+  private sortModeSelect!: HTMLSelectElement;
+
+  private workingCopy: Unit = createBlankUnit();
+  private currentUnitId?: number;
+  private pendingName?: string;
+  private metaFormationsEl: HTMLElement | null = null;
+  private metaNationsEl: HTMLElement | null = null;
+  private metaThemeEl: HTMLElement | null = null;
+  private ammoTemplates: GunAmmo[] = [];
+  private fireTemplates: GunFireMode[] = [];
+  private ammoLibraryByCaliber = new Map<string, GunAmmo[]>();
+
+  constructor(root: HTMLElement) {
+    this.root = root;
+  }
+
+  async init(): Promise<void> {
+    this.renderLayout();
+    this.cacheElements();
+    this.bindEvents();
+    this.bindMetaFeeds();
+
+    unitService.subscribe((units) => {
+      this.units = units;
+      this.updateTemplateLibraries(units);
+      this.renderUnitList();
+      this.syncSelection();
+    });
+
+    await unitService.loadUnits().catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      this.setStatus(`Failed to load units: ${message}`, "error");
+    });
+
+    if (!this.units.length) {
+      this.startNewUnit();
+    }
+  }
+
+  private renderLayout(): void {
+    this.root.innerHTML = `
+      <div class="workspace">
+        <aside class="sidebar">
+          <header class="sidebar-header">
+            <div>
+              <p class="eyebrow">SQLite source</p>
+              <h1>Unit Browser</h1>
+              <p class="muted">Select an existing unit or start a fresh draft.</p>
+            </div>
+            <button type="button" class="ghost" data-action="refresh-units">Refresh</button>
+          </header>
+          <div class="sidebar-actions">
+            <input type="search" placeholder="Search name or category" data-role="search" />
+            <button type="button" class="primary" data-action="new-unit">+ New unit</button>
+          </div>
+          <div class="sidebar-actions">
+            <select data-role="category-filter">
+              <option value="">All categories</option>
+              <option value="INF">Infantry</option>
+              <option value="ARM">Armor</option>
+              <option value="LOG">Logistics</option>
+              <option value="AIR">Air</option>
+            </select>
+            <select data-role="sort-mode">
+              <option value="name-asc">Name A → Z</option>
+              <option value="name-desc">Name Z → A</option>
+              <option value="price-asc">Price low → high</option>
+              <option value="price-desc">Price high → low</option>
+            </select>
+          </div>
+          <div class="unit-list" data-role="unit-list"></div>
+        </aside>
+        <section class="editor">
+          <header class="editor-header">
+            <div>
+              <p class="eyebrow">Unit Editor</p>
+              <h2>Combat Design Suite</h2>
+              <p class="muted" data-role="unit-summary">Select a unit to begin.</p>
+            </div>
+            <div class="editor-actions">
+              <button type="button" class="ghost" data-action="reset-unit">Reset</button>
+              <button type="button" class="ghost danger" data-action="delete-unit">Delete</button>
+              <button type="submit" class="primary" form="unitForm">Save unit</button>
+            </div>
+          </header>
+          <form id="unitForm" data-role="unit-form" class="editor-form">
+            <input type="hidden" name="unit-id" />
+            <section class="panel grid-3">
+              <div class="field">
+                <label>Name</label>
+                <input name="name" autocomplete="off" />
+              </div>
+              <div class="field">
+                <label>Category</label>
+                <input name="category" placeholder="INF, ARM, LOG" />
+              </div>
+              <div class="field">
+                <label>Internal category</label>
+                <input name="internalCategory" />
+              </div>
+              <div class="field">
+                <label>Tier</label>
+                <input name="tier" placeholder="Elite, Regular ..." />
+              </div>
+              <div class="field">
+                <label>Price</label>
+                <input name="price" type="number" step="1" min="0" />
+              </div>
+              <div class="field">
+                <label>Image</label>
+                <input name="image" placeholder="assets/units/pathfinder.png" />
+              </div>
+            </section>
+            <section class="panel">
+              <label>Description</label>
+              <textarea name="description" rows="4" placeholder="Overview, strengths, doctrine..."></textarea>
+            </section>
+            <section class="panel">
+              <div class="panel-title">Core stats</div>
+              <div class="core-stats-grid">
+                <div class="field"><label>Armor</label><input name="stats.armor" type="number" step="0.1" /></div>
+                <div class="field"><label>Health</label><input name="stats.health" type="number" step="0.1" /></div>
+                <div class="field"><label>Squad size</label><input name="stats.squadSize" type="number" step="1" min="0" /></div>
+                <div class="field"><label>Visual range</label><input name="stats.visualRange" type="number" step="1" min="0" /></div>
+                <div class="field"><label>Stealth</label><input name="stats.stealth" type="number" step="1" min="0" /></div>
+                <div class="field"><label>Speed (m/s)</label><input name="stats.speed" type="number" step="0.1" /></div>
+                <div class="field"><label>Weight</label><input name="stats.weight" type="number" step="0.1" /></div>
+              </div>
+            </section>
+            <section class="panel grid-4">
+              <div class="panel-title">Capabilities</div>
+              <div class="field">
+                <label>Static line jump</label>
+                <select name="cap.staticLineJump">
+                  <option value="">Unknown</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>HALO/HAHO</label>
+                <select name="cap.haloHaho">
+                  <option value="">Unknown</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Laser designator</label>
+                <select name="cap.laserDesignator">
+                  <option value="">Unknown</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Sprint distance (m)</label>
+                <input name="cap.sprint.distance" type="number" step="1" min="0" />
+              </div>
+              <div class="field">
+                <label>Sprint speed (m/s)</label>
+                <input name="cap.sprint.speed" type="number" step="0.1" />
+              </div>
+              <div class="field">
+                <label>Sprint cooldown (s)</label>
+                <input name="cap.sprint.cooldown" type="number" step="0.1" min="0" />
+              </div>
+            </section>
+            <section class="panel grid-5">
+              <div class="panel-title">Grenades</div>
+              <div class="field"><label>Smoke</label><input name="grenades.smoke" type="number" step="1" min="0" /></div>
+              <div class="field"><label>Flash</label><input name="grenades.flash" type="number" step="1" min="0" /></div>
+              <div class="field"><label>Thermite</label><input name="grenades.thermite" type="number" step="1" min="0" /></div>
+              <div class="field"><label>Frag</label><input name="grenades.frag" type="number" step="1" min="0" /></div>
+              <div class="field"><label>Total</label><input name="grenades.total" type="number" step="1" min="0" /></div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading">
+                <h3>Weapons</h3>
+                <button type="button" class="ghost" data-action="add-gun">Add weapon</button>
+              </div>
+              <div class="repeatable-list" data-role="gun-list">
+                <p class="empty">No weapons configured.</p>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-heading">
+                <h3>Equipment</h3>
+                <button type="button" class="ghost" data-action="add-equipment">Add equipment</button>
+              </div>
+              <div class="repeatable-list" data-role="equipment-list">
+                <p class="empty">No equipment entries yet.</p>
+              </div>
+            </section>
+          </form>
+          <div class="status-bar" data-role="status-bar">Ready.</div>
+          <div class="meta-bar" data-role="meta-bar">
+            <span>Formations: <strong data-role="meta-formations">0</strong></span>
+            <span>Nations: <strong data-role="meta-nations">0</strong></span>
+            <span>Theme: <strong data-role="meta-theme">System</strong></span>
+          </div>
+        </section>
+      </div>
+    `;
+  }
+
+  private cacheElements(): void {
+    this.form = this.root.querySelector<HTMLFormElement>('[data-role="unit-form"]')!;
+    this.unitListEl = this.root.querySelector<HTMLElement>('[data-role="unit-list"]')!;
+    this.gunListEl = this.root.querySelector<HTMLElement>('[data-role="gun-list"]')!;
+    this.equipmentListEl = this.root.querySelector<HTMLElement>('[data-role="equipment-list"]')!;
+    this.statusEl = this.root.querySelector<HTMLElement>('[data-role="status-bar"]')!;
+    this.summaryEl = this.root.querySelector<HTMLElement>('[data-role="unit-summary"]')!;
+    this.searchInput = this.root.querySelector<HTMLInputElement>('[data-role="search"]')!;
+    this.categoryFilter = this.root.querySelector<HTMLSelectElement>('[data-role="category-filter"]')!;
+    this.sortModeSelect = this.root.querySelector<HTMLSelectElement>('[data-role="sort-mode"]')!;
+    this.metaFormationsEl = this.root.querySelector<HTMLElement>('[data-role="meta-formations"]');
+    this.metaNationsEl = this.root.querySelector<HTMLElement>('[data-role="meta-nations"]');
+    this.metaThemeEl = this.root.querySelector<HTMLElement>('[data-role="meta-theme"]');
+  }
+
+  private bindEvents(): void {
+    this.unitListEl.addEventListener("click", (event) => this.handleUnitListClick(event));
+    this.form.addEventListener("submit", (event) => this.handleSubmit(event));
+    this.root.addEventListener("click", (event) => this.handleAction(event));
+    this.searchInput.addEventListener("input", () => {
+      this.renderUnitList();
+    });
+    this.categoryFilter.addEventListener("change", () => this.renderUnitList());
+    this.sortModeSelect.addEventListener("change", () => this.renderUnitList());
+  }
+
+  private bindMetaFeeds(): void {
+    formationService.subscribe((formations) => {
+      if (this.metaFormationsEl) this.metaFormationsEl.textContent = formations.length.toString();
+    });
+    nationService.subscribe((nations) => {
+      if (this.metaNationsEl) this.metaNationsEl.textContent = nations.length.toString();
+    });
+    settingsService.subscribe((settings) => {
+      if (this.metaThemeEl) this.metaThemeEl.textContent = settings.theme || "System";
+    });
+
+    formationService.loadFormations().catch((error) => {
+      console.error("Failed to load formations", error);
+    });
+    nationService.loadNations().catch((error) => {
+      console.error("Failed to load nations", error);
+    });
+    settingsService.loadSettings().catch((error) => {
+      console.error("Failed to load settings", error);
+    });
+  }
+
+  private handleUnitListClick(event: Event): void {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>(".unit-pill");
+    if (!button) return;
+    const index = Number(button.dataset.index);
+    const unit = this.units[index];
+    if (unit) {
+      this.loadUnit(unit);
+    }
+  }
+
+  private async handleSubmit(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    const unit = this.collectFormData();
+    if (!unit.name) {
+      this.setStatus("Name is required.", "error");
+      return;
+    }
+
+    try {
+      if (!unit.id) {
+        this.pendingName = unit.name.toLowerCase();
+      } else {
+        this.currentUnitId = unit.id;
+      }
+      this.setStatus("Saving unit...", "default");
+      await unitService.saveUnit(unit);
+      this.setStatus("Unit saved.", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.setStatus(`Failed to save unit: ${message}`, "error");
+    }
+  }
+
+  private handleAction(event: MouseEvent): void {
+    const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-action]");
+    if (!button) return;
+    const action = button.dataset.action;
+    if (!action) return;
+    event.preventDefault();
+
+    switch (action) {
+      case "refresh-units":
+        this.setStatus("Refreshing from host...", "default");
+        unitService.loadUnits().catch((error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          this.setStatus(`Refresh failed: ${message}`, "error");
+        });
+        break;
+      case "new-unit":
+        this.startNewUnit();
+        break;
+      case "reset-unit":
+        this.resetCurrentUnit();
+        break;
+      case "add-gun":
+        this.appendGunRow();
+        break;
+      case "add-equipment":
+        this.appendEquipmentRow();
+        break;
+      case "delete-unit":
+        this.deleteCurrentUnit();
+        break;
+      case "remove-gun": {
+        const row = button.closest(".repeatable-row");
+        row?.remove();
+        if (!this.gunListEl.querySelector(".repeatable-row")) {
+          this.gunListEl.innerHTML = '<p class="empty">No weapons configured.</p>';
+        }
+        break;
+      }
+      case "remove-equipment": {
+        const row = button.closest(".repeatable-row");
+        row?.remove();
+        if (!this.equipmentListEl.querySelector(".repeatable-row")) {
+          this.equipmentListEl.innerHTML = '<p class="empty">No equipment entries yet.</p>';
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  private async deleteCurrentUnit(): Promise<void> {
+    if (!this.currentUnitId) {
+      this.setStatus("Select a saved unit before deleting.", "error");
+      return;
+    }
+    const confirmed = window.confirm("Delete this unit permanently?");
+    if (!confirmed) return;
+    try {
+      this.setStatus("Deleting unit...", "default");
+      await unitService.deleteUnit(this.currentUnitId);
+      this.currentUnitId = undefined;
+      this.startNewUnit();
+      this.setStatus("Unit removed.", "success");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.setStatus(`Failed to delete unit: ${message}`, "error");
+    }
+  }
+
+  private renderUnitList(): void {
+    if (!this.unitListEl) return;
+    this.unitListEl.innerHTML = "";
+    const search = this.searchInput.value.trim().toLowerCase();
+    const categoryFilter = this.categoryFilter.value;
+    const items = this.units
+      .map((unit, index) => ({ unit, index }))
+      .filter(({ unit }) => {
+        if (!search) return true;
+        const haystack = `${unit.name ?? ""} ${unit.category ?? ""}`.toLowerCase();
+        return haystack.includes(search);
+      })
+      .filter(({ unit }) => {
+        if (!categoryFilter) return true;
+        return (unit.category || "").toUpperCase() === categoryFilter;
+      });
+
+    const sortMode = this.sortModeSelect.value;
+    items.sort((a, b) => {
+      switch (sortMode) {
+        case "name-desc":
+          return (b.unit.name || "").localeCompare(a.unit.name || "");
+        case "price-asc":
+          return (Number(a.unit.price) || 0) - (Number(b.unit.price) || 0);
+        case "price-desc":
+          return (Number(b.unit.price) || 0) - (Number(a.unit.price) || 0);
+        case "name-asc":
+        default:
+          return (a.unit.name || "").localeCompare(b.unit.name || "");
+      }
+    });
+
+    if (!items.length) {
+      this.unitListEl.innerHTML = '<p class="empty">No units match the current search.</p>';
+      return;
+    }
+
+    items.forEach(({ unit, index }) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "unit-pill";
+      btn.dataset.index = index.toString();
+      if (this.currentUnitId && unit.id === this.currentUnitId) {
+        btn.classList.add("active");
+      }
+      btn.innerHTML = `
+        <span class="title">${unit.name || "Unnamed unit"}</span>
+        <span class="meta">${unit.category || "?"} · ${unit.tier || "Tier ?"} · ${unit.price ?? "—"} pts</span>
+      `;
+      this.unitListEl.appendChild(btn);
+    });
+  }
+
+  private loadUnit(unit: Unit): void {
+    this.workingCopy = deepClone(unit);
+    this.currentUnitId = typeof unit.id === "number" ? unit.id : undefined;
+    this.pendingName = undefined;
+    this.populateForm(this.workingCopy);
+    this.setSummary(this.workingCopy.name ? `Editing ${this.workingCopy.name}` : "Editing unit");
+    this.renderUnitList();
+    this.setStatus("Unit loaded.", "default");
+  }
+
+  private startNewUnit(): void {
+    this.workingCopy = createBlankUnit();
+    this.currentUnitId = undefined;
+    this.pendingName = undefined;
+    this.populateForm(this.workingCopy);
+    this.setSummary("New unit draft");
+    this.renderUnitList();
+    this.setStatus("Ready to capture a new unit.", "default");
+  }
+
+  private resetCurrentUnit(): void {
+    if (this.currentUnitId) {
+      const match = this.units.find((u) => u.id === this.currentUnitId);
+      if (match) {
+        this.loadUnit(match);
+        return;
+      }
+    }
+    this.startNewUnit();
+  }
+
+  private populateForm(unit: Unit): void {
+    const setValue = (name: string, value: unknown) => {
+      const field = this.form.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+        `[name="${name}"]`
+      );
+      if (!field) return;
+      field.value = value === undefined || value === null ? "" : String(value);
+    };
+
+    setValue("unit-id", unit.id);
+    setValue("name", unit.name ?? "");
+    setValue("category", unit.category ?? "");
+    setValue("internalCategory", unit.internalCategory ?? "");
+    setValue("tier", unit.tier ?? "");
+    setValue("price", unit.price ?? "");
+    setValue("image", unit.image ?? "");
+    setValue("description", unit.description ?? "");
+
+    const stats = unit.stats ?? {};
+    setValue("stats.armor", stats.armor ?? "");
+    setValue("stats.health", stats.health ?? "");
+    setValue("stats.squadSize", stats.squadSize ?? "");
+    setValue("stats.visualRange", stats.visualRange ?? "");
+    setValue("stats.stealth", stats.stealth ?? "");
+    setValue("stats.speed", stats.speed ?? "");
+    setValue("stats.weight", stats.weight ?? "");
+
+    const caps = unit.capabilities ?? {};
+    setValue("cap.staticLineJump", booleanToSelectValue(caps.staticLineJump));
+    setValue("cap.haloHaho", booleanToSelectValue(caps.haloHaho));
+    setValue("cap.laserDesignator", booleanToSelectValue(caps.laserDesignator));
+    setValue("cap.sprint.distance", caps.sprint?.distance ?? "");
+    setValue("cap.sprint.speed", caps.sprint?.speed ?? "");
+    setValue("cap.sprint.cooldown", caps.sprint?.cooldown ?? "");
+
+    const gren = unit.grenades ?? {};
+    setValue("grenades.smoke", gren.smoke ?? "");
+    setValue("grenades.flash", gren.flash ?? "");
+    setValue("grenades.thermite", gren.thermite ?? "");
+    setValue("grenades.frag", gren.frag ?? "");
+    setValue("grenades.total", gren.total ?? "");
+
+    this.renderGunList(unit.guns ?? []);
+    this.renderEquipmentList(unit.equipment ?? []);
+  }
+
+  private renderGunList(guns: Gun[]): void {
+    if (!this.gunListEl) return;
+    if (!guns.length) {
+      this.gunListEl.innerHTML = '<p class="empty">No weapons configured.</p>';
+      return;
+    }
+    this.gunListEl.innerHTML = "";
+    guns.forEach((gun) => this.appendGunRow(gun));
+  }
+
+  private renderEquipmentList(items: Equipment[]): void {
+    if (!this.equipmentListEl) return;
+    if (!items.length) {
+      this.equipmentListEl.innerHTML = '<p class="empty">No equipment entries yet.</p>';
+      return;
+    }
+    this.equipmentListEl.innerHTML = "";
+    items.forEach((equipment) => this.appendEquipmentRow(equipment));
+  }
+
+

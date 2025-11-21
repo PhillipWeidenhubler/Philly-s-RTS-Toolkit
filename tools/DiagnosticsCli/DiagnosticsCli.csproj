@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>true</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\desktop\DatabaseService.cs" Link="Shared\DatabaseService.cs" />
+    <Compile Include="..\..\desktop\PayloadNormalization.cs" Link="Shared\PayloadNormalization.cs" />
+    <Compile Include="..\..\backend\server\PayloadStorageService.cs" Link="Shared\PayloadStorageService.cs" />
+    <Compile Include="..\..\backend\server\ServerModels.cs" Link="Shared\ServerModels.cs" />
+    <Compile Include="..\..\backend\server\DiagnosticsBuilder.cs" Link="Shared\DiagnosticsBuilder.cs" />
+  </ItemGroup>
+</Project>

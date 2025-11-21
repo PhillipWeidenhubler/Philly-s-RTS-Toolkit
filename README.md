@@ -13,158 +13,52 @@ Philly's RTS Toolkit is a hybrid web-desktop application built with C# and HTML/
 - Export and import data in JSON format for easy sharing
 - Visualize unit performance with radar charts and statistics
 
+## Build & Launch
+
+1. Run `run_next_gen.bat` from the repo root. The script installs npm dependencies if needed, builds the Vite bundle, compiles the WinForms host, and refreshes the new launcher project.
+2. After the script succeeds, double-click the root-level `PhillyRTSToolkit.exe`. This launcher simply proxies to the latest desktop build under `desktop/bin/Release/net8.0-windows/`, so you can pin it to the Start menu or taskbar.
+3. If the launcher cannot find a compiled desktop host it prompts you to rerun `run_next_gen.bat`.
+
 ## Features
 
+### Embedded Local Server & Diagnostics
+- **In-process ASP.NET Core host** (`backend/server/LocalServerHost.cs`) starts automatically with the WinForms shell and exposes REST endpoints (`/api/health`, `/api/units`, `/api/diagnostics`, `/api/logs`, etc.) over a loopback-only URL. No extra processes or services are required—the user simply launches the desktop app.
+- **JSON + SQLite transparency**: the server routes every save/load through `PayloadStorageService`, keeping `database/rts.db` (structured tables) and the JSON backups in `database/json/*.json` in sync. The new diagnostics endpoint reports table counts, file timestamps, and pending log entries so you can spot drift immediately.
+- **Live server console in Settings**: the Settings panel now includes a server log console, filter controls, and a diagnostics output pane. Use it to inspect HTTP traffic, error stacks, and run on-demand health checks without leaving the app.
+- **Workspace separation**: the repo root now highlights `backend/` (server code), `desktop/` (WinForms host), `frontend/` (Vite workspace), and `database/` (schema + backups). Visual Studio solution folders mirror this layout so server files are easy to find.
+
 ### Unit Management
-- **Comprehensive Unit Editor**: Create units with detailed attributes including:
-  - Basic info (name, cost, category, tier, description)
-  # Philly's RTS Toolkit
+- **Unit Designer** – Rich editor for unit metadata, combat stats, capabilities, and equipment
+- **Weapon & Ammo Library** – Manage reusable weapon templates, ammo definitions, and fire modes with automatic ballistic helpers
+- **Formations & Nations** – Compose higher-order organizations and view aggregate stats
+- **Analytics** – Stats dashboard, upcoming charting modules, and planned export pipelines
+- **Persistent Storage** – SQLite mirrors all payload data while JSON backups (`database/json/*.json`) remain available for import/export
 
-  A next-generation desktop authoring environment for creating, managing, and visualizing RTS unit statcards. The application pairs a C# WinForms/WebView2 host (with SQLite persistence) and a modern Vite + TypeScript + SCSS frontend.
+## Prerequisites
 
-  ## Highlights
+- Windows 10/11
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
+- [Node.js 18+](https://nodejs.org/) for the Vite build
 
-  - **Unit Designer** – Rich editor for unit metadata, combat stats, capabilities, and equipment.
-  - **Weapon & Ammo Library** – Manage reusable weapon templates, ammo definitions, and fire modes with automatic ballistic helpers.
-  - **Formations & Nations** – Compose higher-order organizations and view aggregate stats.
-  - **Analytics** – Stats dashboard, upcoming charting modules, and planned export pipelines.
-  - **Persistent Storage** – SQLite mirrors all payload data while JSON backups (`database/*.json`) remain available for import/export.
+## Setup & Run
 
-  ## Prerequisites
-
-  - Windows 10/11
-  - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-  - [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/)
-  - [Node.js 18+](https://nodejs.org/) for the Vite build
-
-  ## Setup & Run
-
-  ```bash
-  # Clone the repo
-  git clone https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit.git
-  cd Philly-s-RTS-Toolkit
-
-  # Install frontend deps (one-time)
-  cd next-gen/frontend/app
-  npm install
-  cd ../../..
-
-  # Build frontend + desktop host, then launch
-  run_next_gen.bat
-  ```
-
-  `run_next_gen.bat` executes `npm run build` inside `next-gen/frontend/app`, then compiles and starts `next-gen/desktop/PhillyRTSToolkit.csproj`. Re-run the script whenever you change frontend assets or the desktop host.
-
-  ### Manual workflow
-
-  ```bash
-  # Frontend development
-  cd next-gen/frontend/app
-  npm run dev          # Vite dev server
-  npm run build        # Production bundle -> dist/
-
-  # Desktop host (in another terminal)
-  cd ../../desktop
-  dotnet run --project PhillyRTSToolkit.csproj -c Release
-  ```
-
-  The desktop host always serves `next-gen/frontend/app/dist/index.html`. Ensure the bundle exists (via `npm run build`) before launching the C# project.
-
-  ## Project Structure
-
-  ```
-  Philly-s-RTS-Toolkit/
-  ├── database/                  # JSON backups (state.json, units.json, formations.json, ...)
-  ├── next-gen/
-  │   ├── desktop/               # WinForms/WebView2 host + SQLite layer
-  │   │   ├── MainForm.cs
-  │   │   ├── DatabaseService.cs
-  │   │   └── database/          # schema.sql, rts.db, seed files
-  │   └── frontend/
-  │       └── app/               # Vite + TS + SCSS workspace
-  │           ├── src/           # Modules, services, styles
-  │           └── dist/          # Built assets consumed by the host
-  ├── run_next_gen.bat          # Convenience build+run script
-  └── README.md
-  ```
-
-  ## Development Notes
-
-  - WebView messages follow `{ type, payload }` envelopes. Desktop handlers live in `next-gen/desktop/MainForm.cs`; TypeScript services reside in `next-gen/frontend/app/src/services`.
-  - SQLite schema + data access live under `next-gen/desktop/database`. Keep schema changes, `DatabaseService`, and frontend types (`next-gen/frontend/app/src/types`) synchronized.
-  - The host persists payload snapshots to SQLite and rewrites JSON backups for external tooling. Guard against missing arrays when mutating payload sections.
-  - Use `npm run dev` for rapid frontend iteration. The WinForms host can be pointed at the dev server if needed, but production builds always ship the static `dist/` output.
-
-  ## Contributing
-
-  1. Update/extend shared types in `next-gen/frontend/app/src/types`.
-  2. Add or adjust WebView message handling + persistence in `next-gen/desktop`.
-  3. Wire new UI modules/services inside `next-gen/frontend/app/src/modules`.
-  4. Run `npm run build` followed by `run_next_gen.bat` (or rebuild manually) before opening a PR.
-
-  Issues and pull requests are welcome! Please describe the problem, environment, and repro steps when filing bugs.
-
-  ## License & Credits
-
-  - Developed by Phillip Weidenhubler.
-  - Built with .NET 8, WebView2, SQLite, Vite, TypeScript, and SCSS.
-  - Third-party libraries retain their original licenses; see the respective packages for details.
-
-  ---
-
-  **Note:** The legacy WinForms/HTML toolkit has been removed from this repository. Retrieve it from earlier tags/commits if you need historical assets.
-cd desktop
-
-# Restore dependencies
-dotnet restore
-
-# Build the project
-dotnet build PhillyRTSToolkit.csproj -c Release
-
-# Run the application
-dotnet run -c Release
+```bash
+# Clone the repo
+git clone https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit.git
+cd Philly-s-RTS-Toolkit
 ```
 
-### Contributing
+## Tests & Continuous Integration
 
-Contributions are welcome! Here are some ways you can help:
+- **Frontend unit tests**: `cd frontend/app && npm install && npm run test` executes the Vitest suite that now covers shared helpers plus the critical services that proxy host messages
+- **Frontend build**: `npm run build` (in `frontend/app`) produces the Vite bundle consumed by the WinForms host. The CI workflow runs the build before the tests to ensure regressions surface early
+- **Desktop tests**: `dotnet test "Philly's RTS Toolkit.sln"` runs the new `PhillyRTSToolkit.Tests` project, which exercises `DatabaseService` migrations and SQLite-seeding logic
+- **GitHub Actions**: `.github/workflows/ci.yml` provisions Node 20 and .NET 8 on `windows-latest`, runs the Vite build, Vitest, and `dotnet test`, and uploads standard test logs. Use it as the canonical signal before merging
 
-- Report bugs or suggest features via GitHub Issues
-- Submit pull requests with improvements
-- Share your unit/weapon libraries with the community
-- Improve documentation or add translations
+## Contributing
 
-## Keyboard Shortcuts
-
-- **F11**: Toggle fullscreen mode
-- **Ctrl+S**: Save data (when available in context)
-
-## Data Format
-
-All data is stored in JSON format in the `database/` folder:
-
-- `units.json` - Unit definitions
-- `formations.json` - Formation compositions
-- `nations.json` - Nation hierarchies
-- `weapons.json` - Weapon templates
-- `ammo.json` - Ammunition types
-- `weaponTags.json` - Custom tag colors
-- `state.json` - Combined application state
-
-This format makes it easy to:
-- Version control your designs
-- Share configurations with teammates
-- Edit directly in a text editor if needed
-- Integrate with other tools or scripts
-
-## Screenshots
-
-The toolkit features a modern glass-morphism UI with:
-- Tabbed navigation for different editors
-- Color-coded weapon and ammo tags
-- Responsive grid layouts
-- Professional statcard rendering
-- Interactive radar charts for unit comparison
+Contributions are welcome! Please see the [.github/DISCUSSIONS.md](.github/DISCUSSIONS.md) for information about our community channels and how to get involved.
 
 ## License
 
@@ -172,20 +66,4 @@ This project is open source. Please check the repository for specific license in
 
 ## Credits
 
-Developed by Phillip Weidenhubler
-
-**Third-party libraries:**
-- [Chart.js](https://www.chartjs.org/) - Chart rendering
-- [html2canvas](https://html2canvas.hertzen.com/) - Screenshot generation
-- [Microsoft WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) - Web rendering engine
-
-## Support
-
-For questions, issues, or suggestions:
-- Open an issue on [GitHub](https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/issues)
-- Check existing documentation and sample data
-- Review the in-app hints and tooltips
-
----
-
-**Note**: This toolkit is designed for creating balanced unit designs for RTS games and simulations. All military unit data is for gaming purposes only.
+Developed by Phillip Weidenhubler. Built with .NET 8, WebView2, SQLite, Vite, TypeScript, and SCSS.

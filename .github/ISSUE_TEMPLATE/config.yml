@@ -1,0 +1,17 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Ask a Question
+    url: https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/q-a
+    about: Ask questions about using the toolkit
+  - name: 💡 Suggest a Feature
+    url: https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/ideas
+    about: Suggest new features or improvements
+  - name: 🔧 Get Technical Support
+    url: https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/technical-support
+    about: Get help with installation or technical issues
+  - name: 🎨 Share Your Design
+    url: https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions/categories/unit-design-showcase
+    about: Share unit designs and get feedback
+  - name: 📚 View All Discussions
+    url: https://github.com/PhillipWeidenhubler/Philly-s-RTS-Toolkit/discussions
+    about: Browse all community discussion channels
